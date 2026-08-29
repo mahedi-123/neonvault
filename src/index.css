@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #030305;
+  --color-bg-elevated: #0a0a0f;
+  --color-surface: #111118;
+  --color-surface-hover: #1a1a24;
+  --color-border: #252530;
+  --color-border-hover: #353545;
+  --color-text: #f5f5f7;
+  --color-text-muted: #8b8b9a;
+  --color-text-subtle: #5a5a6e;
+  --color-accent: #00ff88;
+  --color-accent-dim: #00cc6a;
+  --color-accent-glow: rgba(0, 255, 136, 0.4);
+  --color-accent-subtle: rgba(0, 255, 136, 0.1);
+  --color-warning: #ffaa00;
+  --color-error: #ff3366;
+  --color-card: #0d0d14;
+  --color-card-hover: #15151f;
+
+  --font-display: "Space Grotesk", "Syne", system-ui, sans-serif;
+  --font-body: "IBM Plex Mono", "JetBrains Mono", monospace;
+
+  --shadow-glow: 0 0 60px -10px rgba(0, 255, 136, 0.15);
+  --shadow-glow-strong: 0 0 100px -20px rgba(0, 255, 136, 0.25);
+  --shadow-elevated: 0 20px 60px -20px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 4px 24px -4px rgba(0, 0, 0, 0.4);
+
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    @apply bg-bg text-text font-body antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 255, 136, 0.03), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(0, 255, 136, 0.02), transparent);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-text;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-hover rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-subtle;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-in {
+    animation: animateIn var(--transition-slow) forwards;
+  }
+
+  @keyframes animateIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .glass {
+    @apply bg-surface/60 backdrop-blur-xl border border-border/50;
+  }
+
+  .glass-strong {
+    @apply bg-surface/80 backdrop-blur-2xl border border-border/60;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-text via-text to-text-muted bg-clip-text text-transparent;
+  }
+
+  .text-gradient-accent {
+    @apply bg-gradient-to-r from-accent to-accent-dim bg-clip-text text-transparent;
+  }
+
+  .border-glow {
+    box-shadow:
+      0 0 0 1px var(--color-border),
+      0 0 20px -5px var(--color-accent-glow);
+  }
+
+  .noise-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.4) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .grid-pattern {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .mesh-gradient {
+    background:
+      radial-gradient(ellipse 60% 60% at 20% 20%, rgba(0, 255, 136, 0.08), transparent),
+      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(0, 255, 136, 0.05), transparent),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(0, 255, 136, 0.03), transparent);
+  }
+}
