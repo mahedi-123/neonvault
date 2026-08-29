@@ -46,14 +46,16 @@ const FilterPanel = ({ isOpen, onClose, className = '' }) => {
 
   return (
     <>
-      <motion.div
-        className="fixed inset-0 z-40 bg-bg/60 backdrop-blur-sm lg:hidden"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-40 bg-bg/60 backdrop-blur-sm lg:hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
       <motion.aside
         className={cn(
@@ -61,9 +63,9 @@ const FilterPanel = ({ isOpen, onClose, className = '' }) => {
           'lg:relative lg:max-w-none lg:w-auto lg:border-0 lg:shadow-none lg:bg-transparent lg:flex-row lg:items-start lg:h-auto lg:p-0',
           className
         )}
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
+        initial={{ x: '100vw' }}
+        animate={{ x: isOpen ? 0 : '100vw' }}
+        exit={{ x: '100vw' }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         role="dialog"
         aria-modal="true"
