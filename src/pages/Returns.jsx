@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { RotateCcw, Shield, Truck, Clock, CheckCircle2, AlertCircle, CreditCard, Box, Globe } from 'lucide-react';
 
 const Returns = () => {

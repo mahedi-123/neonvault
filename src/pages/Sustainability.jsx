@@ -1,5 +1,7 @@
-import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { Leaf, Truck, Recycle, Shield, Zap, TreePine, Package, RotateCcw, CheckCircle2, Target, Download } from 'lucide-react';
+import { maskReveal } from '../lib/motion';
 
 const Sustainability = () => {
   const pillars = [
@@ -71,7 +73,9 @@ const Sustainability = () => {
               <Leaf className="w-4 h-4" /> SUSTAINABILITY
             </span>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight mb-6">
-              BETTER TECH, BETTER PLANET
+              <span className="block overflow-hidden">
+                <motion.span variants={maskReveal} initial="hidden" animate="visible" className="block">BETTER TECH, BETTER PLANET</motion.span>
+              </span>
             </h1>
             <p className="text-lg text-text-muted leading-relaxed">
               We believe premium technology shouldn't come at the cost of our future. Every decision — from packaging to partnerships — is measured by its long-term impact.
@@ -79,11 +83,11 @@ const Sustainability = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">OUR SIX PILLARS</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {pillars.map((pillar, index) => (
-              <motion.div key={pillar.title} className="p-8 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + index * 0.05 }}>
+              <motion.div key={pillar.title} className="p-8 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + index * 0.05 }}>
                 <div className="flex gap-4">
                   <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center text-accent flex-shrink-0">
                     <pillar.icon className="w-7 h-7" />
@@ -101,12 +105,12 @@ const Sustainability = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.2, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">OUR ROADMAP</h2>
           <div className="relative max-w-3xl mx-auto">
             <div className="absolute left-8 top-0 bottom-0 w-px bg-border/50" />
             {commitments.map((commitment, index) => (
-              <motion.div key={commitment.year} className="relative pl-20 pb-12" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + index * 0.05 }}>
+              <motion.div key={commitment.title} className="relative pl-20 pb-12" initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + index * 0.05 }}>
                 <div className={`absolute left-0 top-2 w-16 h-16 rounded-full border-2 flex items-center justify-center z-10 ${
                   commitment.status === 'complete' ? 'bg-accent border-accent' :
                   commitment.status === 'in-progress' ? 'bg-accent/20 border-accent' : 'bg-surface border-border/50'
@@ -136,11 +140,11 @@ const Sustainability = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.3, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">CERTIFICATIONS & PARTNERSHIPS</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {certifications.map((cert, index) => (
-              <motion.div key={cert.name} className="p-6 bg-surface/50 border border-border/50 rounded-2xl text-center" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + index * 0.05 }}>
+              <motion.div key={cert.name} className="p-6 bg-surface/50 border border-border/50 rounded-2xl text-center" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + index * 0.05 }}>
                 <div className="text-4xl mb-4">{cert.logo}</div>
                 <h3 className="text-lg font-display font-bold text-text mb-1">{cert.name}</h3>
                 <p className="text-text-muted text-sm">{cert.desc}</p>
@@ -149,15 +153,15 @@ const Sustainability = () => {
           </div>
         </motion.section>
 
-        <motion.section className="text-center" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
+        <motion.section className="text-center" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.4, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text mb-6">VIEW OUR IMPACT REPORT</h2>
           <p className="text-lg text-text-muted mb-8 max-w-xl mx-auto">
             Annual transparency report with full metrics, methodology, and third-party verification.
           </p>
-          <a href="/contact" className="inline-flex items-center gap-2 px-8 py-4 bg-accent text-bg rounded-xl font-body font-medium text-lg hover:bg-accent-dim transition-colors">
+          <Link to="/contact" className="inline-flex items-center gap-2 px-8 py-4 bg-accent text-bg rounded-xl font-body font-medium text-lg hover:bg-accent-dim transition-colors">
             DOWNLOAD 2026 REPORT
             <Download className="w-6 h-6" />
-          </a>
+          </Link>
         </motion.section>
       </div>
     </div>

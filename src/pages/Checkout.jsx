@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, Check, CreditCard, Truck, User, Mail, MapPin, Lock, Loader2, X } from 'lucide-react';
 import { cn, formatPrice } from '../utils/helpers';
 import Button from '../components/Button';
@@ -9,6 +10,7 @@ import { useCart } from '../context/CartContext';
 import { useUI } from '../context/UIContext';
 
 const Checkout = () => {
+  const navigate = useNavigate();
   const { items, subtotal, shipping, tax, total, clearCart } = useCart();
   const { showToast } = useUI();
 
@@ -98,7 +100,7 @@ const Checkout = () => {
           <svg className="w-16 h-16 mx-auto text-text-subtle mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1 4 4v4"/></svg>
           <h1 className="text-2xl font-display font-bold text-text mb-2">Your cart is empty</h1>
           <p className="text-text-muted mb-6">Add some products before checking out</p>
-          <Button size="lg" onClick={() => window.location.href = '/shop'} leftIcon={<ChevronRight className="w-5 h-5" />}>
+          <Button size="lg" onClick={() => navigate('/shop')} leftIcon={<ChevronRight className="w-5 h-5" />}>
             CONTINUE SHOPPING
           </Button>
         </motion.div>
@@ -154,7 +156,7 @@ const Checkout = () => {
           </motion.div>
 
           <motion.div className="flex flex-col gap-3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-            <Button size="lg" onClick={() => window.location.href = '/'}>
+            <Button size="lg" onClick={() => navigate('/')}>
               CONTINUE SHOPPING
             </Button>
             <Button variant="secondary" size="lg" onClick={() => { /* view order */ }}>
@@ -432,7 +434,7 @@ const Checkout = () => {
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input type="checkbox" className="w-4 h-4 mt-1 rounded border-border text-accent bg-surface focus:ring-accent focus:ring-2" required />
                       <div className="text-sm text-text-muted">
-                        I agree to the <a href="/terms" className="text-accent hover:underline">Terms of Service</a> and <a href="/privacy" className="text-accent hover:underline">Privacy Policy</a>.
+                        I agree to the <Link to="/terms" className="text-accent hover:underline">Terms of Service</Link> and <Link to="/privacy" className="text-accent hover:underline">Privacy Policy</Link>.
                       </div>
                     </label>
                   </section>

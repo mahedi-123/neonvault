@@ -1,0 +1,136 @@
+import { useSyncExternalStore } from 'react';
+
+/**
+ * Minimal external store for the vault's scene/camera state, shared between
+ * the R3F canvas and the DOM overlay without routing through React Context
+ * (which would re-render unrelated overlay chrome on every hover tick).
+ *
+ * mode:
+ *   'entering'  — cinematic establishing shot, no input accepted
+ *   'intro'     — guide dialog stepping through how the world works
+ *   'overview'  — free roam: the player walks, the camera follows
+ *   'diving'    — an exhibit was triggered, camera is moving onto it
+ *   'zone'      — camera settled, exhibition panel open
+ *   'returning' — camera easing back onto the player's shoulder
+ *
+ * Reads inside useFrame should call getSnapshot() directly (no subscription,
+ * no re-render). Reads that drive DOM/JSX should go through useVaultStore().
+ */
+
+export const INTRO_STEPS = [
+  'Welcome to THE NEON VAULT — a private showroom for the gear worth owning.',
+  'Eight zones sit on this floor. Everything inside them is real stock, priced and ready to take home.',
+  'Move with WASD, or tap anywhere on the floor to walk there. Drag to look around.',
+  'Walk up to a zone and it will ask whether you want to go in. That is the whole tour.',
+];
+
+const initialState = {
+  mode: 'entering',
+  introStep: 0,
+  hoveredZoneId: null,
+  activeZoneId: null,
+  /**
+   * Zone the player is standing inside right now. Drives the minimap's
+   * caption and the "enter this exhibit?" prompt.
+   *
+   * Standing in a zone no longer enters it. Walking past an exhibit used to
+   * take the camera off you and open a product panel unasked, which made
+   * simply crossing the floor feel like it kept grabbing the wheel — so
+   * proximity now only offers, and the player confirms.
+   */
+  nearZoneId: null,
+};
+
+let state = { ...initialState };
+
+const listeners = new Set();
+
+function emit() {
+  for (const listener of listeners) listener();
+}
+
+function setState(partial) {
+  state = { ...state, ...partial };
+  emit();
+}
+
+export function subscribe(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function getSnapshot() {
+  return state;
+}
+
+export function setHovered(id) {
+  if (state.hoveredZoneId === id) return;
+  if (state.mode !== 'overview' && id !== null) return;
+  setState({ hoveredZoneId: id });
+}
+
+export function setNearZone(id) {
+  if (state.nearZoneId === id) return;
+  setState({ nearZoneId: id });
+}
+
+
+/** Establishing shot finished — hand over to the guide. */
+export function beginIntro() {
+  if (state.mode !== 'entering') return;
+  setState({ mode: 'intro', introStep: 0 });
+}
+
+export function nextIntroStep() {
+  if (state.mode !== 'intro') return;
+  if (state.introStep >= INTRO_STEPS.length - 1) {
+    finishIntro();
+    return;
+  }
+  setState({ introStep: state.introStep + 1 });
+}
+
+export function finishIntro() {
+  if (state.mode !== 'intro' && state.mode !== 'entering') return;
+  setState({ mode: 'overview', introStep: 0 });
+}
+
+/**
+ * The player accepted a zone's enter prompt. Camera dives; the panel waits
+ * for arrive(). Only ever called from an explicit confirmation — never from
+ * proximity alone.
+ */
+export function approachZone(id) {
+  if (state.mode !== 'overview') return;
+  if (!id || state.activeZoneId === id) return;
+  setState({ mode: 'diving', activeZoneId: id, hoveredZoneId: null });
+}
+
+export function arrive() {
+  if (state.mode !== 'diving') return;
+  setState({ mode: 'zone' });
+}
+
+export function startReturn() {
+  if (state.mode !== 'zone' && state.mode !== 'diving') return;
+  setState({ mode: 'returning', hoveredZoneId: null });
+}
+
+/** Camera is back on the player's shoulder — free roam resumes. */
+export function settleOverview() {
+  setState({ mode: 'overview', activeZoneId: null, hoveredZoneId: null });
+}
+
+/** Re-arms the whole experience — called on every fresh mount of the vault,
+ * since the store is a module singleton that would otherwise still hold
+ * whatever mode a previous visit to /vault left it in. */
+export function resetVault() {
+  state = { ...initialState };
+  emit();
+}
+
+const identity = (s) => s;
+
+export function useVaultStore(selector = identity) {
+  return useSyncExternalStore(subscribe, () => selector(state));
+}

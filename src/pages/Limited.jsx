@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { Zap, Shield, Clock, Crown, Sparkles, AlertCircle } from 'lucide-react';
 import { getLimitedProducts } from '../data/products';
 import ProductGrid from '../components/ProductGrid';
@@ -71,10 +72,10 @@ const Limited = () => {
           <div className="p-8 bg-accent/5 border border-accent/20 rounded-2xl text-center">
             <h2 className="text-2xl font-display font-bold text-text mb-4">NEVER MISS A DROP</h2>
             <p className="text-text-muted mb-6 max-w-xl mx-auto">Join the Vault for 24-hour early access, drop notifications, and members-only editions.</p>
-            <a href="/shop?category=all" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-bg rounded-xl font-body font-medium hover:bg-accent-dim transition-colors">
+            <Link to="/shop?category=all" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-bg rounded-xl font-body font-medium hover:bg-accent-dim transition-colors">
               JOIN THE VAULT
               <Sparkles className="w-5 h-5" />
-            </a>
+            </Link>
           </div>
         </motion.section>
 

@@ -1,167 +1,285 @@
-import { useRef, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowRight, MousePointer, Sparkles } from 'lucide-react';
-import { cn } from '../utils/helpers';
+import { motion, useMotionValue, useReducedMotion, useScroll, useSpring, useTransform } from 'motion/react';
+import { ArrowRight, ChevronDown, RotateCcw, ShieldCheck, Sparkles, Truck } from 'lucide-react';
+import { formatPrice } from '../utils/helpers';
 import Button from './Button';
+import Badge from './Badge';
+import EnterVaultButton from './EnterVaultButton';
+import { getBestSellers, products } from '../data/products';
+import { clipReveal, fadeUp, maskReveal, staggerContainer, useMagnetic } from '../lib/motion';
+
+const trustPoints = [
+  { icon: Truck, label: 'Free shipping over $200' },
+  { icon: RotateCcw, label: '30-day returns' },
+  { icon: ShieldCheck, label: '2-year warranty' },
+];
 
 const Hero = () => {
   const navigate = useNavigate();
   const heroRef = useRef(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const rafRef = useRef(null);
+  const prefersReducedMotion = useReducedMotion();
+  const [cursorReady, setCursorReady] = useState(() => window.matchMedia('(pointer: fine)').matches);
+
+  const heroProduct = useMemo(() => getBestSellers()[0] ?? products[0], []);
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
-      const rect = heroRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setMousePos({
-        x: ((e.clientX - rect.left) / rect.width - 0.5) * 2,
-        y: ((e.clientY - rect.top) / rect.height - 0.5) * 2,
-      });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    const mq = window.matchMedia('(pointer: fine)');
+    const handleChange = (e) => setCursorReady(e.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
   }, []);
 
-  const floatingProducts = [
-    { id: 1, img: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop', x: -15, y: -10, rotation: -8, delay: 0 },
-    { id: 2, img: 'https://images.unsplash.com/photo-1511467687858-23d96c32e4ae?w=400&h=400&fit=crop', x: 65, y: -20, rotation: 5, delay: 0.2 },
-    { id: 3, img: 'https://images.unsplash.com/photo-1527814050087-3793815479db?w=400&h=400&fit=crop', x: -10, y: 55, rotation: 12, delay: 0.4 },
-    { id: 4, img: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&h=400&fit=crop', x: 55, y: 60, rotation: -5, delay: 0.6 },
-    { id: 5, img: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=400&h=400&fit=crop', x: 25, y: 20, rotation: 3, delay: 0.8 },
-  ];
+  const cursorEffectsEnabled = cursorReady && !prefersReducedMotion;
+
+  // Pointer position, normalized to [-0.5, 0.5] on both axes, spring-smoothed
+  // so tilt/lighting glide rather than snap to the raw mouse delta.
+  const pointerX = useMotionValue(0);
+  const pointerY = useMotionValue(0);
+  const springPointerX = useSpring(pointerX, { stiffness: 150, damping: 20, mass: 0.6 });
+  const springPointerY = useSpring(pointerY, { stiffness: 150, damping: 20, mass: 0.6 });
+
+  const tiltX = useTransform(springPointerY, [-0.5, 0.5], [4, -4]);
+  const tiltY = useTransform(springPointerX, [-0.5, 0.5], [-4, 4]);
+  const glowX = useTransform(springPointerX, [-0.5, 0.5], [-28, 28]);
+  const glowY = useTransform(springPointerY, [-0.5, 0.5], [-28, 28]);
+
+  const handlePointerMove = useCallback((e) => {
+    if (!cursorEffectsEnabled || rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const rect = heroRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      pointerX.set((e.clientX - rect.left) / rect.width - 0.5);
+      pointerY.set((e.clientY - rect.top) / rect.height - 0.5);
+    });
+  }, [cursorEffectsEnabled, pointerX, pointerY]);
+
+  const handlePointerLeave = useCallback(() => {
+    pointerX.set(0);
+    pointerY.set(0);
+  }, [pointerX, pointerY]);
+
+  useEffect(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  // Scroll-linked exit: hero content and product drift/fade at different
+  // rates as the page scrolls past it — a single, bounded parallax moment,
+  // not a page-wide scroll-jack.
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const textY = useTransform(scrollYProgress, [0, 1], [0, -40]);
+  const textOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
+  const productY = useTransform(scrollYProgress, [0, 1], [0, -110]);
+  const productOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+  const bgY = useTransform(scrollYProgress, [0, 1], [0, 50]);
+  // Ramps in over the back half of the scroll-out so the glow is already
+  // building by the time Product Showcase's own top glow starts — the two
+  // never touch in the DOM, but their timing overlaps to read as one handoff.
+  const handoffGlowOpacity = useTransform(scrollYProgress, [0.5, 1], [0, 1]);
+
+  const textScrollStyle = prefersReducedMotion ? undefined : { y: textY, opacity: textOpacity };
+  const productScrollStyle = prefersReducedMotion ? undefined : { y: productY, opacity: productOpacity };
+  const bgScrollStyle = prefersReducedMotion ? undefined : { y: bgY };
+
+  const productTiltStyle = cursorEffectsEnabled
+    ? { rotateX: tiltX, rotateY: tiltY, transformPerspective: 1200 }
+    : {};
+
+  const { ref: magneticRef, style: magneticStyle, handlers: magneticHandlers } = useMagnetic({
+    strength: 0.25,
+    max: 10,
+    enabled: cursorEffectsEnabled,
+  });
+
+  const heroImage = heroProduct?.images?.[0];
+  const heroTagVariant = heroProduct?.tagVariant === 'primary' ? 'bestseller' : heroProduct?.tagVariant === 'accent' ? 'new' : 'limited';
 
   return (
-    <motion.section
+    <section
       ref={heroRef}
-      className={cn(
-        'relative min-h-screen flex items-center justify-center',
-        'overflow-hidden',
-        'bg-bg'
-      )}
-      style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0,255,136,0.04), transparent)' }}
+      onMouseMove={handlePointerMove}
+      onMouseLeave={handlePointerLeave}
+      className="relative min-h-screen flex items-center overflow-hidden bg-bg"
+      style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.06), transparent)' }}
+      aria-label="NEON VAULT — buy the future"
     >
-      <div className="absolute inset-0 grid-pattern opacity-20" />
-      <div className="absolute inset-0 mesh-gradient" />
-      <div className="absolute inset-0 noise-overlay" />
-      <div className="absolute inset-0 vignette" />
-
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-accent/5 blur-[150px] opacity-30 animate-pulse" aria-hidden="true" />
-      <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full bg-accent/5 blur-[100px] opacity-20" style={{ animation: 'float 20s ease-in-out infinite' }} aria-hidden="true" />
-      <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] rounded-full bg-accent/5 blur-[100px] opacity-15" style={{ animation: 'float 25s ease-in-out infinite reverse' }} aria-hidden="true" />
-
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
-        <motion.div
-          className="relative z-10"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
-        >
-          <motion.div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface/60 backdrop-blur-xl border border-border/50 text-text-muted text-sm font-body mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
-          >
-            <Sparkles className="w-4 h-4 text-accent" />
-            <span>NEW DROP // 48 HOURS ONLY</span>
-          </motion.div>
-
-          <motion.h1
-            className="text-6xl sm:text-7xl lg:text-9xl font-display font-extrabold text-text leading-[0.95] tracking-tight text-balance"
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-          >
-            <span className="block">BUY THE</span>
-            <span className="block text-gradient-accent">FUTURE.</span>
-          </motion.h1>
-
-          <motion.p
-            className="mt-6 max-w-xl text-lg sm:text-xl text-text-muted font-body leading-relaxed"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.6 }}
-          >
-            Curated premium technology for those who refuse to compromise. Smart gadgets, gaming gear, and lifestyle tech — all in one vault.
-          </motion.p>
-
-          <motion.div
-            className="mt-10 flex flex-wrap items-center gap-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7, duration: 0.6 }}
-          >
-            <Button size="xl" leftIcon={<ArrowRight className="w-5 h-5" />} onClick={() => navigate('/shop')}>
-              EXPLORE COLLECTION
-            </Button>
-            <Button variant="secondary" size="xl" onClick={() => navigate('/new-drops')}>
-              VIEW NEW DROPS
-            </Button>
-          </motion.div>
-
-          <motion.div
-            className="mt-16 flex items-center gap-8 text-sm text-text-muted"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9, duration: 0.6 }}
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              <span>Free shipping over $200</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12V7H5"/><path d="M16 7l-4-4"/><path d="M8 7l4-4"/><path d="M3 22v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4"/></svg>
-              <span>30-day returns</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h12"/><path d="M10 16h4"/></svg>
-              <span>2-year warranty</span>
-            </div>
-          </motion.div>
-        </motion.div>
-
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-text-subtle animate-bounce"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2, duration: 0.8 }}
-          style={{ animationDelay: '2s' }}
-        >
-          <MousePointer className="w-6 h-6" />
-          <span className="text-xs font-body">Scroll to explore</span>
-        </motion.div>
+      <motion.div
+        className="absolute inset-0"
+        style={{
+          ...(bgScrollStyle || {}),
+          // Tapers the grid/mesh/noise/vignette out before the section's hard
+          // bottom edge so it fades into Product Showcase's own atmosphere
+          // instead of cutting off flush at the boundary.
+          maskImage: 'linear-gradient(to bottom, black 0%, black 78%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 78%, transparent 100%)',
+        }}
+        aria-hidden="true"
+      >
+        <div className="absolute inset-0 grid-pattern opacity-20" />
+        <div className="absolute inset-0 mesh-gradient" />
+        <div className="absolute inset-0 noise-overlay" />
+        <div className="absolute inset-0 vignette" />
 
         <div
-          className="absolute bottom-20 left-1/2 -translate-x-1/2 flex gap-8 lg:gap-16"
-          style={{
-            transform: `translateX(calc(-50% + ${mousePos.x * 30}px)) translateY(${mousePos.y * 20}px)`,
-            transition: 'transform 0.1s linear'
-          }}
-          aria-hidden="true"
+          className="absolute top-1/3 left-1/4 w-[420px] h-[420px] rounded-full bg-accent/5 blur-[120px] opacity-25"
+          style={prefersReducedMotion ? undefined : { animation: 'float 22s ease-in-out infinite' }}
+        />
+        <div className="absolute bottom-1/4 right-1/5 w-[320px] h-[320px] rounded-full bg-accent/5 blur-[100px] opacity-15" />
+      </motion.div>
+
+      {/* Handoff glow: builds through the back half of the scroll-out, giving
+          Product Showcase's top glow something to visually pick up from. */}
+      <motion.div
+        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[560px] h-[220px] rounded-full bg-accent/10 blur-[110px]"
+        style={prefersReducedMotion ? { opacity: 0.15 } : { opacity: handoffGlowOpacity }}
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-28">
+        <motion.div
+          variants={staggerContainer(0.14, 0.1)}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] items-center gap-16 lg:gap-12"
         >
-          {floatingProducts.map((product, index) => (
+          {/* Text column */}
+          <motion.div style={textScrollStyle} className="relative z-10">
             <motion.div
-              key={product.id}
-              className="relative"
-              style={{
-                transform: `translateX(${product.x}%) translateY(${product.y}%) rotate(${product.rotation}deg)`,
-              }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1.5 + product.delay, duration: 0.8, ease: [0.34, 1.56, 0.64, 1] }}
-              animate={{ y: [0, -15, 0], rotate: [product.rotation, product.rotation + 2, product.rotation] }}
-              transition={{ duration: 6 + index, repeat: Infinity, ease: 'easeInOut' }}
+              variants={fadeUp}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface/60 backdrop-blur-xl border border-border/50 text-text-muted text-sm font-body mb-8"
             >
-              <div className="relative w-52 h-52 lg:w-64 lg:h-64 rounded-2xl overflow-hidden bg-surface border border-border/50 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.5)]">
-                <img src={product.img} alt="" className="w-full h-full object-cover" loading="lazy" />
-              </div>
-              <div className="absolute -bottom-3 -left-3 -right-3 h-3 bg-gradient-to-r from-accent/30 via-transparent to-accent/30 rounded-t-2xl blur-lg" />
+              <Sparkles className="w-4 h-4 text-accent" aria-hidden="true" />
+              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" aria-hidden="true" />
+              <span>NEW DROP // 48 HOURS ONLY</span>
             </motion.div>
-          ))}
-        </div>
+
+            <motion.h1
+              variants={staggerContainer(0.12)}
+              className="text-[clamp(2.75rem,8vw,6.5rem)] font-display font-extrabold text-text leading-[0.95] tracking-tight text-balance"
+            >
+              <span className="block overflow-hidden">
+                <motion.span variants={maskReveal} className="block">BUY THE</motion.span>
+              </span>
+              <span className="block overflow-hidden">
+                <motion.span variants={maskReveal} className="block text-gradient-accent">FUTURE.</motion.span>
+              </span>
+            </motion.h1>
+
+            <motion.p
+              variants={fadeUp}
+              className="mt-6 max-w-xl text-lg sm:text-xl text-text-muted font-body leading-relaxed"
+            >
+              Curated premium technology for those who refuse to compromise. Smart gadgets, gaming gear, and lifestyle tech — all in one vault.
+            </motion.p>
+
+            <motion.div variants={fadeUp} className="mt-10 flex flex-wrap items-center gap-4">
+              <motion.div
+                ref={magneticRef}
+                style={magneticStyle}
+                {...magneticHandlers}
+                className="inline-flex"
+              >
+                <Button size="xl" leftIcon={<ArrowRight className="w-5 h-5" />} onClick={() => navigate('/shop')}>
+                  EXPLORE COLLECTION
+                </Button>
+              </motion.div>
+              <Button variant="secondary" size="xl" onClick={() => navigate('/new-drops')}>
+                VIEW NEW DROPS
+              </Button>
+              <EnterVaultButton onClick={() => navigate('/vault')} />
+            </motion.div>
+
+            <motion.div variants={fadeUp} className="mt-16 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm text-text-muted">
+              {trustPoints.map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <Icon className="w-4 h-4 text-text-subtle" aria-hidden="true" />
+                  <span>{label}</span>
+                </div>
+              ))}
+            </motion.div>
+          </motion.div>
+
+          {/* Product column */}
+          <motion.div style={productScrollStyle} className="relative">
+            {cursorEffectsEnabled && (
+              <motion.div
+                className="absolute inset-0 -z-10 rounded-full bg-accent/20 blur-[90px]"
+                style={{ x: glowX, y: glowY, opacity: 0.35 }}
+                aria-hidden="true"
+              />
+            )}
+
+            <motion.div
+              style={productTiltStyle}
+              variants={staggerContainer(0.15, 0.25)}
+              className="relative mx-auto max-w-sm lg:max-w-md"
+            >
+              <motion.div
+                variants={clipReveal}
+                whileHover={prefersReducedMotion ? undefined : { y: -6 }}
+                transition={{ type: 'spring', stiffness: 250, damping: 20 }}
+                className="relative aspect-[4/5] rounded-[2rem] overflow-hidden bg-card border border-border/60 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.6)]"
+              >
+                {heroProduct?.tag && (
+                  <div className="absolute top-5 left-5 z-10">
+                    <Badge variant={heroTagVariant} dot>{heroProduct.tag}</Badge>
+                  </div>
+                )}
+                {heroImage && (
+                  <img
+                    src={heroImage}
+                    alt={heroProduct?.name ? `${heroProduct.name} — featured product` : 'Featured product'}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="eager"
+                    width="800"
+                    height="800"
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-bg/70 via-transparent to-transparent" />
+              </motion.div>
+
+              {heroProduct && (
+                <motion.div
+                  variants={fadeUp}
+                  className="absolute -bottom-6 left-6 right-6 flex items-center justify-between gap-4 px-5 py-4 rounded-2xl bg-surface/80 backdrop-blur-xl border border-border/60 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.5)]"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-display font-semibold text-text truncate">{heroProduct.name}</p>
+                    <p className="text-xs text-text-muted truncate">{heroProduct.shortDescription}</p>
+                  </div>
+                  <span className="shrink-0 text-lg font-display font-semibold text-accent">
+                    {formatPrice(heroProduct.price)}
+                  </span>
+                </motion.div>
+              )}
+            </motion.div>
+          </motion.div>
+        </motion.div>
       </div>
-    </motion.section>
+
+      <motion.div
+        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+        style={prefersReducedMotion ? undefined : { opacity: textOpacity }}
+        aria-hidden="true"
+      >
+        <motion.div
+          className="flex flex-col items-center gap-2 text-text-subtle"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.4, duration: 0.8 }}
+        >
+          <span className="text-xs font-body tracking-wider">SCROLL TO EXPLORE</span>
+          <motion.div
+            animate={prefersReducedMotion ? undefined : { y: [0, 6, 0] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <ChevronDown className="w-5 h-5" />
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </section>
   );
 };
 

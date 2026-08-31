@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { Cookie, Shield, Database, Eye, Settings, Globe, CheckCircle2, XCircle, Mail } from 'lucide-react';
 
 const Cookies = () => {
@@ -196,10 +197,10 @@ const Cookies = () => {
           <p className="text-text-muted mb-6 max-w-xl mx-auto">
             Questions about this Cookie Policy or your data? Contact our privacy team.
           </p>
-          <a href="/contact" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-bg rounded-xl font-body font-medium hover:bg-accent-dim transition-colors">
+          <Link to="/contact" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-bg rounded-xl font-body font-medium hover:bg-accent-dim transition-colors">
             CONTACT PRIVACY TEAM
             <Mail className="w-5 h-5" />
-          </a>
+          </Link>
         </motion.section>
       </div>
     </div>

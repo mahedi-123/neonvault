@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Shield, User, Database, Lock, Globe, Mail, Settings } from 'lucide-react';
 
 const sectionIcons = {

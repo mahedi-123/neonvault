@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, Heart, Eye, Maximize2, Loader2 } from 'lucide-react';
 import { cn, formatPrice, formatNumber } from '../utils/helpers';
 import Button from './Button';
@@ -54,18 +54,21 @@ const ProductCard = ({ product, variant = 'default', priority = false }) => {
     default: 'group relative flex flex-col h-full',
     compact: 'group relative flex flex-col h-auto min-h-[320px]',
     featured: 'group relative flex flex-col h-full',
+    list: 'group relative flex flex-row h-full',
   };
 
   const imageWrapperVariants = {
     default: 'relative aspect-square overflow-hidden bg-surface',
     compact: 'relative aspect-[4/3] overflow-hidden bg-surface',
     featured: 'relative aspect-[3/4] overflow-hidden bg-surface',
+    list: 'relative w-28 sm:w-40 md:w-48 flex-shrink-0 aspect-square overflow-hidden bg-surface',
   };
 
   const contentVariants = {
     default: 'flex-1 flex flex-col p-4 pt-3',
     compact: 'flex-1 flex flex-col p-3 pt-2',
     featured: 'flex-1 flex flex-col p-5 pt-4',
+    list: 'flex-1 min-w-0 flex flex-col justify-center gap-1 p-4 sm:p-5',
   };
 
   const TagBadge = ({ tag, tagVariant }) => {
@@ -84,15 +87,17 @@ const ProductCard = ({ product, variant = 'default', priority = false }) => {
       className={cn(
         'block',
         cardVariants[variant],
-        'bg-card border border-border/50 rounded-xl overflow-hidden transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(0,255,136,0.15)]'
+        'bg-card border border-border/50 rounded-xl overflow-hidden transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(139,92,246,0.15)]'
       )}
       onClick={(e) => {
         if (e.target.closest('button')) e.preventDefault();
       }}
     >
       <motion.div
+        className={cn('w-full', variant === 'list' && 'flex flex-row items-stretch gap-0')}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
+        whileHover={variant === 'list' ? { x: 3 } : { y: -4 }}
         transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => { setHovered(false); setActiveImage(0); }}

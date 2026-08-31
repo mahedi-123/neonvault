@@ -1,6 +1,7 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Camera, Newspaper, Download, Mail, Sparkles, Award, Globe, Users, Clock, CheckCircle2 } from 'lucide-react';
 import Button from '../components/Button';
+import { maskReveal } from '../lib/motion';
 
 const Press = () => {
   const pressKit = [
@@ -81,7 +82,9 @@ const Press = () => {
               <Newspaper className="w-4 h-4" /> PRESS KIT
             </span>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight mb-6">
-              PRESS & MEDIA RESOURCES
+              <span className="block overflow-hidden">
+                <motion.span variants={maskReveal} initial="hidden" animate="visible" className="block">PRESS & MEDIA RESOURCES</motion.span>
+              </span>
             </h1>
             <p className="text-lg text-text-muted leading-relaxed">
               Everything you need to cover NEONVAULT. Assets, fact sheets, and direct contact for inquiries.
@@ -89,11 +92,11 @@ const Press = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">PRESS KIT CONTENTS</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {pressKit.map((item, index) => (
-              <motion.div key={item.title} className="p-6 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + index * 0.05 }}>
+              <motion.div key={item.title} className="p-6 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + index * 0.05 }}>
                 <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent mb-4">
                   <item.icon className="w-6 h-6" />
                 </div>
@@ -107,11 +110,11 @@ const Press = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.2, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">RECENT COVERAGE</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {coverage.map((item, index) => (
-              <motion.article key={item.title} className="p-6 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + index * 0.05 }}>
+              <motion.article key={item.title} className="p-6 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + index * 0.05 }}>
                 <div className="flex items-center gap-3 mb-3">
                   <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-body font-medium">{item.outlet}</span>
                   <time className="text-text-muted text-sm">{new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</time>
@@ -124,12 +127,12 @@ const Press = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.3, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">BRAND ASSETS QUICK DOWNLOAD</h2>
           <div className="max-w-3xl mx-auto">
             <div className="space-y-3">
               {assets.map((asset, index) => (
-                <motion.div key={asset.name} className="flex items-center justify-between p-4 bg-surface/50 border border-border/50 rounded-xl" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + index * 0.03 }}>
+                <motion.div key={asset.name} className="flex items-center justify-between p-4 bg-surface/50 border border-border/50 rounded-xl" initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + index * 0.03 }}>
                   <div className="flex items-center gap-4">
                     <span className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
                       {asset.format === 'SVG' ? <Sparkles className="w-5 h-5" /> : asset.format === 'PDF' ? <Newspaper className="w-5 h-5" /> : asset.format === 'ZIP' ? <Download className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
@@ -146,7 +149,7 @@ const Press = () => {
           </div>
         </motion.section>
 
-        <motion.section className="text-center" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
+        <motion.section className="text-center" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.4, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text mb-6">MEDIA INQUIRIES</h2>
           <p className="text-lg text-text-muted mb-8 max-w-xl mx-auto">
             For interview requests, product samples, event invites, or partnership proposals.

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Clock, Loader2, Tag, TrendingUp, Zap } from 'lucide-react';
 import { cn, formatPrice } from '../utils/helpers';
 import Button from './Button';
@@ -9,6 +9,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useUI } from '../context/UIContext';
 import { getLimitedProducts, getNewDrops } from '../data/products';
+import { viewportOnce } from '../lib/motion';
 
 const DropRoom = () => {
   const { addItem } = useCart();
@@ -114,18 +115,20 @@ const DropRoom = () => {
         <motion.div
           className="mb-12"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={viewportOnce}
+          transition={{ duration: 0.5 }}
         >
           <h3 className="text-2xl font-display font-bold text-text mb-6">LIVE INVENTORY</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
             {limitedProducts.map((product, index) => (
               <motion.article
                 key={product.id}
-                className="group relative bg-card border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(0,255,136,0.15)]"
+                className="group relative bg-card border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(139,92,246,0.15)]"
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + index * 0.1 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={viewportOnce}
+                transition={{ delay: Math.min(index, 6) * 0.08 }}
               >
                 <div className="relative aspect-square overflow-hidden">
                   <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
@@ -183,8 +186,9 @@ const DropRoom = () => {
         {newDrops.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={viewportOnce}
+            transition={{ duration: 0.5 }}
           >
             <h3 className="text-2xl font-display font-bold text-text mb-6">NEW THIS WEEK</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">

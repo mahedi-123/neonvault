@@ -2,28 +2,31 @@
 
 @theme {
   --color-bg: #030305;
-  --color-bg-elevated: #0a0a0f;
-  --color-surface: #111118;
-  --color-surface-hover: #1a1a24;
-  --color-border: #252530;
-  --color-border-hover: #353545;
+  --color-bg-elevated: #0a0a10;
+  --color-surface: #121016;
+  --color-surface-hover: #1b1720;
+  --color-border: #2a2632;
+  --color-border-hover: #3a3444;
   --color-text: #f5f5f7;
-  --color-text-muted: #8b8b9a;
-  --color-text-subtle: #5a5a6e;
-  --color-accent: #00ff88;
-  --color-accent-dim: #00cc6a;
-  --color-accent-glow: rgba(0, 255, 136, 0.4);
-  --color-accent-subtle: rgba(0, 255, 136, 0.1);
+  --color-text-muted: #9a94a8;
+  --color-text-subtle: #635d70;
+  --color-accent: #8b5cf6;
+  --color-accent-dim: #7c3aed;
+  --color-accent-secondary: #22d3ee;
+  --color-accent-secondary-dim: #0891b2;
+  --color-accent-glow: rgba(139, 92, 246, 0.35);
+  --color-accent-subtle: rgba(139, 92, 246, 0.1);
+  --color-accent-secondary-subtle: rgba(34, 211, 238, 0.1);
   --color-warning: #ffaa00;
   --color-error: #ff3366;
-  --color-card: #0d0d14;
-  --color-card-hover: #15151f;
+  --color-card: #100e15;
+  --color-card-hover: #191621;
 
   --font-display: "Space Grotesk", "Syne", system-ui, sans-serif;
   --font-body: "IBM Plex Mono", "JetBrains Mono", monospace;
 
-  --shadow-glow: 0 0 60px -10px rgba(0, 255, 136, 0.15);
-  --shadow-glow-strong: 0 0 100px -20px rgba(0, 255, 136, 0.25);
+  --shadow-glow: 0 0 50px -12px rgba(139, 92, 246, 0.18);
+  --shadow-glow-strong: 0 0 90px -20px rgba(139, 92, 246, 0.28);
   --shadow-elevated: 0 20px 60px -20px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 4px 24px -4px rgba(0, 0, 0, 0.4);
 
@@ -51,8 +54,8 @@
   body {
     @apply bg-bg text-text font-body antialiased;
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 255, 136, 0.03), transparent),
-      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(0, 255, 136, 0.02), transparent);
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.05), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(34, 211, 238, 0.03), transparent);
     background-attachment: fixed;
   }
 
@@ -115,7 +118,7 @@
   }
 
   .text-gradient-accent {
-    @apply bg-gradient-to-r from-accent to-accent-dim bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-accent to-accent-secondary bg-clip-text text-transparent;
   }
 
   .border-glow {
@@ -152,8 +155,253 @@
 
   .mesh-gradient {
     background:
-      radial-gradient(ellipse 60% 60% at 20% 20%, rgba(0, 255, 136, 0.08), transparent),
-      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(0, 255, 136, 0.05), transparent),
-      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(0, 255, 136, 0.03), transparent);
+      radial-gradient(ellipse 60% 60% at 20% 20%, rgba(139, 92, 246, 0.07), transparent),
+      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(34, 211, 238, 0.05), transparent),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(139, 92, 246, 0.03), transparent);
+  }
+}
+
+/* =========================================================
+   ENTER THE VAULT — the hero's portal CTA
+
+   This one button is the only door to the 3D world, sitting third in a row
+   of three, so it has to out-shout two buttons that are visually louder than
+   it. The effect is layered rather than one big animation: a conic ring
+   orbiting the border, a scanner sweep, a receding grid, HUD corner
+   brackets, rising sparks, and a slow charge pulse — each cheap on its own,
+   loud together.
+
+   Everything animates transform/opacity/filter (compositor work, no layout),
+   the whole thing is inert under prefers-reduced-motion, and the visuals are
+   painted by decorative spans the button already labels itself without.
+   ========================================================= */
+
+@layer components {
+  .vault-cta-wrap {
+    --cta-violet: #8b5cf6;
+    --cta-cyan: #22d3ee;
+    position: relative;
+    display: inline-flex;
+    isolation: isolate;
+  }
+
+  /* Soft bloom behind the button. Lives on the wrapper, not the button, so
+     it isn't clipped by the button's own overflow: hidden. */
+  .vault-cta-aura {
+    position: absolute;
+    inset: -26px;
+    z-index: -1;
+    pointer-events: none;
+    /* Sized and weighted to be visible against the hero's near-black ground.
+       An earlier pass was subtle enough to disappear entirely, which defeats
+       the point — this is the part that catches the eye from across the
+       page, before any of the detail inside the button reads at all. */
+    background:
+      radial-gradient(56% 120% at 50% 50%,
+        rgba(139, 92, 246, 0.78),
+        rgba(34, 211, 238, 0.34) 52%,
+        transparent 78%);
+    filter: blur(22px);
+    animation: vaultCtaBreathe 3.4s ease-in-out infinite;
+    transition: opacity var(--transition-base);
+  }
+
+  /* The "look at me" beat: a rim that expands and dissolves on a slow cycle,
+     like the button is charging. */
+  .vault-cta-pulse {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border: 1px solid var(--cta-cyan);
+    animation: vaultCtaPulse 3.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  }
+
+  .vault-cta {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    background: transparent;
+  }
+
+  /* Orbiting conic gradient. Oversized and square so the sweep still covers
+     the corners of a wide, short button as it turns. */
+  .vault-cta-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 260%;
+    aspect-ratio: 1;
+    margin-left: -130%;
+    transform-origin: center;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      var(--cta-cyan) 26deg,
+      var(--cta-violet) 62deg,
+      transparent 112deg,
+      transparent 184deg,
+      var(--cta-violet) 208deg,
+      var(--cta-cyan) 244deg,
+      transparent 296deg
+    );
+    animation: vaultCtaSpin 4.2s linear infinite;
+    /* The margin-top half-offset can't be expressed in % of height here, so
+       the element is centred with a translate instead. */
+    translate: 0 -50%;
+  }
+
+  /* Sits over the ring and leaves only its outer rim showing — that rim is
+     the animated border. */
+  .vault-cta-face {
+    position: absolute;
+    inset: 1.5px;
+    /* Not flat black: a violet lift at the top edge gives the face some
+       depth, so the ring around it reads as light falling on a surface
+       rather than a stroke drawn on a hole. */
+    background:
+      radial-gradient(120% 90% at 50% -10%, rgba(139, 92, 246, 0.28), transparent 62%),
+      #08060f;
+  }
+
+  /* Perspective floor receding into the button. */
+  .vault-cta-grid {
+    position: absolute;
+    inset: 1.5px;
+    background-image:
+      linear-gradient(to right, rgba(139, 92, 246, 0.4) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(34, 211, 238, 0.28) 1px, transparent 1px);
+    background-size: 20px 20px;
+    /* Fade out low, so it reads as a floor receding under the label rather
+       than graph paper laid over the whole button. */
+    -webkit-mask-image: linear-gradient(to top, #000, transparent 58%);
+    mask-image: linear-gradient(to top, #000, transparent 58%);
+    opacity: 0.3;
+    animation: vaultCtaGrid 2s linear infinite;
+    transition: opacity var(--transition-base);
+  }
+
+  /* Scanner passing across the face. */
+  .vault-cta-scan {
+    position: absolute;
+    inset: 1.5px;
+    background: linear-gradient(
+      100deg,
+      transparent 42%,
+      rgba(226, 232, 255, 0.1) 47%,
+      rgba(34, 211, 238, 0.6) 50%,
+      rgba(226, 232, 255, 0.1) 53%,
+      transparent 58%
+    );
+    transform: translateX(-130%);
+    animation: vaultCtaScan 3.6s cubic-bezier(0.55, 0, 0.2, 1) infinite;
+  }
+
+  /* HUD brackets. They push outward on hover, which is what makes the button
+     feel like it opens rather than just lights up. */
+  .vault-cta-corner {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--cta-cyan);
+    opacity: 0.75;
+    transition: transform var(--transition-base), opacity var(--transition-base);
+  }
+  .vault-cta-corner-tl { top: 5px; left: 5px; border-right: 0; border-bottom: 0; }
+  .vault-cta-corner-tr { top: 5px; right: 5px; border-left: 0; border-bottom: 0; }
+  .vault-cta-corner-bl { bottom: 5px; left: 5px; border-right: 0; border-top: 0; }
+  .vault-cta-corner-br { bottom: 5px; right: 5px; border-left: 0; border-top: 0; }
+
+  .vault-cta:hover .vault-cta-corner-tl { transform: translate(-3px, -3px); opacity: 1; }
+  .vault-cta:hover .vault-cta-corner-tr { transform: translate(3px, -3px); opacity: 1; }
+  .vault-cta:hover .vault-cta-corner-bl { transform: translate(-3px, 3px); opacity: 1; }
+  .vault-cta:hover .vault-cta-corner-br { transform: translate(3px, 3px); opacity: 1; }
+
+  .vault-cta-spark {
+    position: absolute;
+    bottom: -4px;
+    width: 2px;
+    height: 2px;
+    border-radius: 9999px;
+    background: var(--cta-cyan);
+    box-shadow: 0 0 6px var(--cta-cyan);
+    opacity: 0;
+    animation: vaultCtaSpark 2.8s ease-out infinite;
+  }
+
+  .vault-cta-icon {
+    animation: vaultCtaFloat 3s ease-in-out infinite;
+    transition: transform var(--transition-base);
+  }
+  .vault-cta:hover .vault-cta-icon {
+    transform: rotate(90deg) scale(1.1);
+  }
+
+  .vault-cta:hover .vault-cta-grid { opacity: 0.75; }
+  .vault-cta-wrap:hover .vault-cta-aura { opacity: 1; }
+  .vault-cta:hover .vault-cta-label { animation: vaultCtaGlitch 0.42s steps(3, end) 1; }
+  .vault-cta:active { transform: scale(0.985); }
+
+  @keyframes vaultCtaSpin {
+    to { rotate: 360deg; }
+  }
+
+  @keyframes vaultCtaGrid {
+    to { background-position: 0 20px, 0 20px; }
+  }
+
+  @keyframes vaultCtaScan {
+    /* Long dwell, quick pass — a sweep that never rests reads as a loading
+       bar, and a loading bar is the opposite of an invitation. */
+    0%, 58% { transform: translateX(-130%); }
+    88%, 100% { transform: translateX(130%); }
+  }
+
+  @keyframes vaultCtaPulse {
+    0% { transform: scale(1); opacity: 0.6; }
+    65%, 100% { transform: scale(1.16); opacity: 0; }
+  }
+
+  @keyframes vaultCtaBreathe {
+    0%, 100% { opacity: 0.42; transform: scale(0.97); }
+    50% { opacity: 0.78; transform: scale(1.04); }
+  }
+
+  @keyframes vaultCtaSpark {
+    0% { opacity: 0; transform: translateY(0); }
+    15% { opacity: 0.9; }
+    100% { opacity: 0; transform: translateY(-44px); }
+  }
+
+  @keyframes vaultCtaFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-2px) rotate(8deg); }
+  }
+
+  @keyframes vaultCtaGlitch {
+    0% { text-shadow: none; transform: translateX(0); }
+    30% { text-shadow: -2px 0 var(--cta-cyan), 2px 0 var(--cta-violet); transform: translateX(1px); }
+    60% { text-shadow: 2px 0 var(--cta-cyan), -2px 0 var(--cta-violet); transform: translateX(-1px); }
+    100% { text-shadow: none; transform: translateX(0); }
+  }
+
+  /* Reduced motion keeps the styling and drops the movement — the button is
+     still obviously the special one, it just stops moving. */
+  @media (prefers-reduced-motion: reduce) {
+    .vault-cta-ring,
+    .vault-cta-grid,
+    .vault-cta-scan,
+    .vault-cta-pulse,
+    .vault-cta-aura,
+    .vault-cta-spark,
+    .vault-cta-icon,
+    .vault-cta:hover .vault-cta-label {
+      animation: none;
+    }
+    .vault-cta-scan,
+    .vault-cta-spark {
+      opacity: 0;
+    }
+    .vault-cta-aura { opacity: 0.5; }
   }
 }

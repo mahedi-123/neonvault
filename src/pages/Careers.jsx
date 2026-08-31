@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Briefcase, Users, Heart, Zap, Coffee, BookOpen, Plane, Shield, CheckCircle2, Sparkles } from 'lucide-react';
+import { maskReveal } from '../lib/motion';
 
 const Careers = () => {
   const benefits = [
@@ -67,7 +68,9 @@ const Careers = () => {
               <Briefcase className="w-4 h-4" /> CAREERS AT NEONVAULT
             </span>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight mb-6">
-              BUILD THE FUTURE WITH US
+              <span className="block overflow-hidden">
+                <motion.span variants={maskReveal} initial="hidden" animate="visible" className="block">BUILD THE FUTURE WITH US</motion.span>
+              </span>
             </h1>
             <p className="text-lg text-text-muted leading-relaxed">
               We're a small, passionate team curating the best technology on the planet. Join us in shaping how people discover and experience the future.
@@ -75,11 +78,11 @@ const Careers = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">OUR VALUES</h2>
           <div className="max-w-3xl mx-auto space-y-4">
             {values.map((value, index) => (
-              <motion.div key={index} className="flex items-start gap-4 p-6 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + index * 0.05 }}>
+              <motion.div key={index} className="flex items-start gap-4 p-6 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + index * 0.05 }}>
                 <CheckCircle2 className="w-6 h-6 text-accent flex-shrink-0 mt-1" />
                 <p className="text-text">{value}</p>
               </motion.div>
@@ -87,11 +90,11 @@ const Careers = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.2, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">BENEFITS & PERKS</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {benefits.map((benefit, index) => (
-              <motion.div key={benefit.title} className="p-6 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + index * 0.05 }}>
+              <motion.div key={benefit.title} className="p-6 bg-surface/50 border border-border/50 rounded-2xl" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + index * 0.05 }}>
                 <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent mb-4">
                   <benefit.icon className="w-6 h-6" />
                 </div>
@@ -102,14 +105,14 @@ const Careers = () => {
           </div>
         </motion.section>
 
-        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
+        <motion.section className="mb-24" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.3, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text text-center mb-12">OPEN ROLES</h2>
           {openRoles.map((dept, deptIndex) => (
-            <motion.div key={dept.dept} className="mb-12" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + deptIndex * 0.1 }}>
+            <motion.div key={dept.dept} className="mb-12" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1 + deptIndex * 0.1 }}>
               <h3 className="text-2xl font-display font-bold text-text mb-6 pb-3 border-b border-border/50">{dept.dept}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {dept.roles.map((role, roleIndex) => (
-                  <motion.button key={role.title} className="p-6 bg-surface/50 border border-border/50 rounded-2xl text-left hover:border-accent/30 hover:bg-surface transition-all group" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + deptIndex * 0.1 + roleIndex * 0.03 }} whileHover={{ x: 4 }}>
+                  <motion.button key={role.title} className="p-6 bg-surface/50 border border-border/50 rounded-2xl text-left hover:border-accent/30 hover:bg-surface transition-all group" initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.15 + deptIndex * 0.1 + roleIndex * 0.03 }} whileHover={{ x: 4 }}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-body font-medium">{role.type}</span>
                       <span className="px-3 py-1 bg-surface border border-border/50 rounded-full text-xs text-text-muted">{role.location}</span>
@@ -122,7 +125,7 @@ const Careers = () => {
           ))}
         </motion.section>
 
-        <motion.section className="text-center" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
+        <motion.section className="text-center" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.4, duration: 0.5 }}>
           <h2 className="text-3xl font-display font-bold text-text mb-6">DON'T SEE YOUR ROLE?</h2>
           <p className="text-lg text-text-muted mb-8 max-w-xl mx-auto">
             We're always looking for exceptional people. Send your portfolio and a note about why NEONVAULT to careers@neonvault.com

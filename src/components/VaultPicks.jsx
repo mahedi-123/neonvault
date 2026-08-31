@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Sparkles, ArrowRight, Heart, Eye, Loader2 } from 'lucide-react';
 import { cn, formatPrice } from '../utils/helpers';
 import Button from './Button';
@@ -8,6 +8,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useUI } from '../context/UIContext';
 import { getBestSellers, products } from '../data/products';
+import { viewportOnce } from '../lib/motion';
 
 const VaultPicks = () => {
   const { addItem } = useCart();
@@ -83,16 +84,18 @@ const VaultPicks = () => {
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.6 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={viewportOnce}
+          transition={{ duration: 0.6 }}
         >
           {picks.map((pick, index) => (
             <motion.article
               key={pick.product.id}
-              className="group relative bg-card border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(0,255,136,0.15)]"
+              className="group relative bg-card border border-border/50 rounded-2xl overflow-hidden transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(139,92,246,0.15)]"
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + index * 0.08 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={viewportOnce}
+              transition={{ delay: (index % 6) * 0.08 }}
             >
               <div className="relative aspect-square overflow-hidden">
                 <img src={pick.product.images[0]} alt={pick.product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />

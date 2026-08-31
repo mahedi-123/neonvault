@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Shield, RotateCcw, Wrench, Clock, CheckCircle2, AlertCircle, Mail, Headphones, Keyboard, MousePointer, Cpu, Globe } from 'lucide-react';
 
 const Warranty = () => {

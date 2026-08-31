@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronLeft, ChevronRight, Plus, Minus, Heart, ShoppingBag, Check, Loader2 } from 'lucide-react';
 import { cn, formatPrice } from '../utils/helpers';
 import Button from './Button';
@@ -211,7 +211,7 @@ const ProductQuickView = () => {
                         'relative w-10 h-10 rounded-full border-2 transition-all',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
                         selectedColor === color.name
-                          ? 'border-accent scale-110 shadow-[0_0_0_3px_rgba(0,255,136,0.3)]'
+                          ? 'border-accent scale-110 shadow-[0_0_0_3px_rgba(139,92,246,0.3)]'
                           : 'border-border/50 hover:border-border-hover'
                       )}
                       style={{ backgroundColor: color.hex }}

@@ -1,9 +1,11 @@
-import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { BookOpen, Calendar, Clock, Tag, ArrowRight, Sparkles, Headphones, Keyboard, MousePointer, Cpu, Zap } from 'lucide-react';
 import { formatPrice } from '../utils/helpers';
 import { products } from '../data/products';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
+import { maskReveal } from '../lib/motion';
 
 const Journal = () => {
   const articles = [
@@ -119,7 +121,9 @@ const Journal = () => {
               <BookOpen className="w-4 h-4" /> THE NEONVAULT JOURNAL
             </span>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight mb-6">
-              DEEP DIVES, REVIEWS, & GUIDES
+              <span className="block overflow-hidden">
+                <motion.span variants={maskReveal} initial="hidden" animate="visible" className="block">DEEP DIVES, REVIEWS, & GUIDES</motion.span>
+              </span>
             </h1>
             <p className="text-lg text-text-muted leading-relaxed">
               Expert analysis, hands-on testing, and buying guides for the tech that matters. Written by engineers, journalists, and enthusiasts.
@@ -127,7 +131,7 @@ const Journal = () => {
           </div>
         </motion.section>
 
-        <motion.div className="mb-12 flex flex-wrap gap-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }}>
+        <motion.div className="mb-12 flex flex-wrap gap-2" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.1, duration: 0.5 }}>
           {categories.map((cat, i) => (
             <motion.button
               key={cat}
@@ -135,7 +139,7 @@ const Journal = () => {
                 i === 0 ? 'bg-accent text-bg' : 'bg-surface/50 border border-border/50 text-text-muted hover:text-text hover:border-border-hover'
               }`}
               initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }}
               transition={{ delay: 0.1 + i * 0.03 }}
             >
               {cat}
@@ -143,13 +147,13 @@ const Journal = () => {
           ))}
         </motion.div>
 
-        <motion.div className="grid grid-cols-1 lg:grid-cols-2 gap-8" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
+        <motion.div className="grid grid-cols-1 lg:grid-cols-2 gap-8" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.2, duration: 0.5 }}>
           {articles.map((article, index) => (
             <motion.article
               key={article.slug}
               className={`group relative overflow-hidden rounded-2xl bg-surface/50 border border-border/50 ${article.featured ? 'lg:col-span-2' : ''}`}
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }}
               transition={{ delay: 0.15 + index * 0.05 }}
               whileHover={{ y: -4, boxShadow: '0 20px 60px -20px rgba(0,0,0,0.3)' }}
             >
@@ -198,13 +202,13 @@ const Journal = () => {
           ))}
         </motion.div>
 
-        <motion.div className="mt-16 p-8 bg-accent/5 border border-accent/20 rounded-2xl text-center" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
+        <motion.div className="mt-16 p-8 bg-accent/5 border border-accent/20 rounded-2xl text-center" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ delay: 0.3, duration: 0.5 }}>
           <h3 className="text-xl font-display font-bold text-text mb-3">Want Early Access?</h3>
           <p className="text-text-muted mb-6 max-w-xl mx-auto">Journal subscribers get articles 48 hours early, plus exclusive video content and author AMAs.</p>
-          <a href="/shop?category=all" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-bg rounded-xl font-body font-medium hover:bg-accent-dim transition-colors">
+          <Link to="/shop?category=all" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-bg rounded-xl font-body font-medium hover:bg-accent-dim transition-colors">
             SUBSCRIBE FREE
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </a>
+          </Link>
         </motion.div>
       </div>
     </div>

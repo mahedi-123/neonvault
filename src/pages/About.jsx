@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Sparkles, Target, Users, Award, Zap, Leaf, Heart, Globe, Rocket, Shield, Clock, Package } from 'lucide-react';
 
 const About = () => {

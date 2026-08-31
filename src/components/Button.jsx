@@ -22,7 +22,7 @@ const Button = forwardRef(({
   `;
 
   const variants = {
-    primary: 'bg-accent text-bg hover:bg-accent-dim active:scale-[0.98] shadow-[0_0_20px_-5px_rgba(0,255,136,0.3)]',
+    primary: 'bg-accent text-bg hover:bg-accent-dim active:scale-[0.98] shadow-[0_0_20px_-5px_rgba(139,92,246,0.35)]',
     secondary: 'bg-surface-hover text-text border border-border hover:bg-surface hover:border-border-hover active:scale-[0.98]',
     ghost: 'bg-transparent text-text-muted hover:text-text hover:bg-surface active:scale-[0.98]',
     outline: 'bg-transparent text-text border border-border hover:bg-surface hover:border-border-hover active:scale-[0.98]',

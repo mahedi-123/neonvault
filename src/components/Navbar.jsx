@@ -1,20 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { Search, ShoppingBag, Heart, User, Menu, X, ChevronDown, Sun, Moon } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import Button from './Button';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import { products, categories } from '../data/products';
 
 const Navbar = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [hoveredCategory, setHoveredCategory] = useState(null);
   const megaMenuRef = useRef(null);
   const { isOpen: cartOpen, itemCount, setIsOpen } = useCart();
   const { count: wishlistCount } = useWishlist();
   const { searchOpen, openSearch, mobileMenuOpen, setMobileMenuOpen, megaMenuOpen, setMegaMenuOpen, megaMenuCategory, setMegaMenuCategory } = useUI();
+  const { isAuthenticated, user } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -32,6 +37,13 @@ const Navbar = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [setMegaMenuOpen, setMegaMenuCategory]);
+
+  // The vault is a full-viewport takeover with its own minimal header (see
+  // VaultOverlayUI) — the standard site chrome would otherwise sit right on
+  // top of it (both fixed to the same top-left corner), crowding the vault's
+  // own breadcrumb. Global overlays (search, cart, command palette, toasts)
+  // stay mounted in Layout regardless, so keyboard shortcuts still work.
+  if (location.pathname === '/vault') return null;
 
   const navItems = [
     { label: 'Shop', href: '/shop', category: 'all' },
@@ -56,15 +68,15 @@ const Navbar = () => {
     >
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" aria-label="Main navigation">
         <div className="flex h-16 lg:h-20 items-center justify-between gap-4">
-          <motion.a
-            href="/"
-            className="flex items-center gap-2 text-xl font-display font-bold text-text shrink-0"
-            aria-label="NEONVAULT Home"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <span className="text-accent">NEON</span>VAULT
-          </motion.a>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="shrink-0">
+            <Link
+              to="/"
+              className="flex items-center gap-2 text-xl font-display font-bold text-text"
+              aria-label="NEONVAULT Home"
+            >
+              <span className="text-accent">NEON</span>VAULT
+            </Link>
+          </motion.div>
 
           <div className="hidden lg:flex lg:items-center lg:gap-1 lg:mx-auto">
             {navItems.map((item, index) => (
@@ -98,12 +110,12 @@ const Navbar = () => {
                     </button>
                   </div>
                 ) : (
-                  <a
-                    href={item.href}
+                  <Link
+                    to={item.href}
                     className="px-3 py-2 text-sm font-body font-medium text-text-muted hover:text-text transition-colors duration-200 rounded-lg hover:bg-surface"
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 )}
               </motion.div>
             ))}
@@ -168,8 +180,9 @@ const Navbar = () => {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200 hidden sm:flex"
-              aria-label="Account"
+              onClick={() => navigate(isAuthenticated ? '/account' : '/sign-in')}
+              className="p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200 hidden sm:flex cursor-pointer"
+              aria-label={isAuthenticated ? 'My Account' : 'Sign In'}
             >
               <User className="w-5 h-5" />
             </motion.button>
@@ -194,13 +207,13 @@ const Navbar = () => {
                   <ul className="space-y-2">
                     {categoryItems.map(cat => (
                       <li key={cat.id}>
-                        <a
-                          href={`/shop?category=${cat.id}`}
+                        <Link
+                          to={`/shop?category=${cat.id}`}
                           className="flex items-center justify-between px-3 py-2 text-sm font-body text-text-muted hover:text-text rounded-lg hover:bg-surface transition-all duration-200"
                         >
                           {cat.name}
                           <span className="text-xs text-text-subtle">{cat.count}</span>
-                        </a>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -208,9 +221,9 @@ const Navbar = () => {
 
                 <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {products.filter(p => p.isBestSeller || p.isNew || p.isLimited).slice(0, 6).map(product => (
-                    <a
+                    <Link
                       key={product.id}
-                      href={`/product/${product.id}`}
+                      to={`/product/${product.id}`}
                       className="group flex gap-3 p-3 rounded-xl bg-surface hover:bg-surface-hover border border-border/50 transition-all duration-200"
                     >
                       <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
@@ -220,7 +233,7 @@ const Navbar = () => {
                         <p className="text-sm font-body font-medium text-text truncate group-hover:text-accent transition-colors">{product.name}</p>
                         <p className="text-sm font-display font-semibold text-accent mt-1">{product.price > 0 ? `$${product.price}` : 'Coming Soon'}</p>
                       </div>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -275,13 +288,13 @@ const Navbar = () => {
                               {item.label}
                             </button>
                           ) : (
-                            <a
-                              href={item.href}
+                            <Link
+                              to={item.href}
                               className="block px-4 py-3 text-base font-body text-text-muted hover:text-text hover:text-accent transition-colors"
                               onClick={() => setMobileMenuOpen(false)}
                             >
                               {item.label}
-                            </a>
+                            </Link>
                           )}
                         </li>
                       ))}
@@ -293,39 +306,39 @@ const Navbar = () => {
                     <ul className="space-y-2">
                       {categoryItems.map(cat => (
                         <li key={cat.id}>
-                          <a
-                            href={`/shop?category=${cat.id}`}
+                          <Link
+                            to={`/shop?category=${cat.id}`}
                             className="block px-4 py-3 text-base font-body text-text-muted hover:text-text hover:text-accent transition-colors"
                             onClick={() => setMobileMenuOpen(false)}
                           >
                             {cat.name}
                             <span className="ml-2 text-xs text-text-subtle">({cat.count})</span>
-                          </a>
+                          </Link>
                         </li>
                       ))}
                     </ul>
                   </div>
 
-                  <div>
-                    <h3 className="text-sm font-body font-semibold text-text-muted uppercase tracking-wider mb-4">Account</h3>
-                    <ul className="space-y-3">
-                      <li>
-                        <button className="w-full text-left px-4 py-3 text-base font-body text-text-muted hover:text-text hover:text-accent transition-colors" onClick={() => { /* cart */ setMobileMenuOpen(false); }}>
-                          Cart {itemCount > 0 && `(${itemCount})`}
-                        </button>
-                      </li>
-                      <li>
-                        <button className="w-full text-left px-4 py-3 text-base font-body text-text-muted hover:text-text hover:text-accent transition-colors" onClick={() => { /* wishlist */ setMobileMenuOpen(false); }}>
-                          Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
-                        </button>
-                      </li>
-                      <li>
-                        <button className="w-full text-left px-4 py-3 text-base font-body text-text-muted hover:text-text hover:text-accent transition-colors" onClick={() => { /* account */ setMobileMenuOpen(false); }}>
-                          Account
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
+<div>
+                      <h3 className="text-sm font-body font-semibold text-text-muted uppercase tracking-wider mb-4">Account</h3>
+                      <ul className="space-y-3">
+                        <li>
+                          <button className="w-full text-left px-4 py-3 text-base font-body text-text-muted hover:text-text hover:text-accent transition-colors" onClick={() => { setMobileMenuOpen(false); setIsOpen(true); }}>
+                            Cart {itemCount > 0 && `(${itemCount})`}
+                          </button>
+                        </li>
+                        <li>
+                          <button className="w-full text-left px-4 py-3 text-base font-body text-text-muted hover:text-text hover:text-accent transition-colors" onClick={() => { setMobileMenuOpen(false); navigate('/account'); }}>
+                            Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
+                          </button>
+                        </li>
+                        <li>
+                          <button className="w-full text-left px-4 py-3 text-base font-body text-text-muted hover:text-text hover:text-accent transition-colors" onClick={() => { setMobileMenuOpen(false); navigate(isAuthenticated ? '/account' : '/sign-in'); }}>
+                            {isAuthenticated ? 'My Account' : 'Sign In'}
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
                 </div>
               </nav>
             </motion.div>

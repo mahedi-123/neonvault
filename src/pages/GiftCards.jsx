@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { Gift, Mail, CreditCard, Clock, CheckCircle2, Smartphone, Wifi, Shield, Sparkles, ArrowRight } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import Button from '../components/Button';
@@ -7,6 +8,7 @@ import Badge from '../components/Badge';
 import { useState } from 'react';
 
 const GiftCards = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState('denomination');
   const [selectedAmount, setSelectedAmount] = useState(100);
   const [formData, setFormData] = useState({
@@ -196,7 +198,7 @@ const GiftCards = () => {
               <Button size="lg" onClick={() => { setStep('denomination'); setFormData({ recipientEmail: '', recipientName: '', senderName: '', message: '', sendDate: '' }); setStatus('idle'); }}>
                 SEND ANOTHER
               </Button>
-              <Button variant="secondary" size="lg" onClick={() => window.location.href = '/'}>
+              <Button variant="secondary" size="lg" onClick={() => navigate('/')}>
                 CONTINUE SHOPPING
               </Button>
             </div>

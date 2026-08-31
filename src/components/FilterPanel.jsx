@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { X, ChevronDown, ChevronUp, SlidersHorizontal, Tag, DollarSign, TrendingUp, Sparkles, Filter as FilterIcon, CheckCircle } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import Button from './Button';

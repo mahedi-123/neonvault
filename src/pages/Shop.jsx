@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Filter, X, Grid, List, ChevronDown } from 'lucide-react';
-import { cn, formatPrice } from '../utils/helpers';
+import { useState } from 'react';
+import { motion } from 'motion/react';
+import { Filter, X, ChevronDown } from 'lucide-react';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
 import ProductGrid from '../components/ProductGrid';
 import FilterPanel from '../components/FilterPanel';
+import ViewToggle from '../components/ViewToggle';
 import { useFilters } from '../context/FilterContext';
 import { products, categories } from '../data/products';
+import { fadeUp, maskReveal, staggerContainer } from '../lib/motion';
 
 const Shop = () => {
   const [viewMode, setViewMode] = useState('grid');
@@ -97,18 +98,15 @@ const Shop = () => {
       <div className="absolute inset-0 noise-overlay" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          className="mb-12"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
+        <motion.div className="mb-12" variants={staggerContainer(0.1)} initial="hidden" animate="visible">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight mb-4">
-            SHOP ALL
+            <span className="block overflow-hidden">
+              <motion.span variants={maskReveal} className="block">SHOP ALL</motion.span>
+            </span>
           </h1>
-          <p className="text-lg text-text-muted max-w-2xl">
+          <motion.p variants={fadeUp} className="text-lg text-text-muted max-w-2xl">
             Browse our complete catalog of premium futuristic technology.
-          </p>
+          </motion.p>
         </motion.div>
 
         <motion.div
@@ -163,24 +161,7 @@ const Shop = () => {
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-subtle pointer-events-none" />
             </div>
 
-            <div className="flex items-center gap-1 bg-surface border border-border/50 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={cn('p-2 rounded-md transition-colors', viewMode === 'grid' ? 'bg-accent text-bg' : 'text-text-muted hover:text-text')}
-                aria-label="Grid view"
-                aria-pressed={viewMode === 'grid'}
-              >
-                <Grid className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={cn('p-2 rounded-md transition-colors', viewMode === 'list' ? 'bg-accent text-bg' : 'text-text-muted hover:text-text')}
-                aria-label="List view"
-                aria-pressed={viewMode === 'list'}
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div>
+            <ViewToggle viewMode={viewMode} onChange={setViewMode} />
 
             <Button
               variant="secondary"
@@ -205,7 +186,7 @@ const Shop = () => {
           <div className="lg:col-span-9">
             <ProductGrid
               initialProducts={filteredProducts}
-              className={cn(viewMode === 'list' && 'grid-cols-1')}
+              viewMode={viewMode}
             />
           </div>
         </motion.div>

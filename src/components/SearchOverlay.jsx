@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Search, X, TrendingUp, Clock, Loader2, ChevronRight } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import Button from './Button';

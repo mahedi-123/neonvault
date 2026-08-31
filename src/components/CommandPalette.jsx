@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { Search, Command, X, ChevronRight, ShoppingBag, Heart, Sparkles, Package, BookOpen } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { useUI } from '../context/UIContext';
@@ -17,6 +18,7 @@ const commands = [
 ];
 
 const CommandPalette = () => {
+  const navigate = useNavigate();
   const { commandPaletteOpen, closeCommandPalette, setCommandPaletteOpen } = useUI();
   const { itemCount } = useCart();
   const { count: wishlistCount } = useWishlist();
@@ -78,7 +80,7 @@ const CommandPalette = () => {
           // handled by search overlay
           break;
         case 'navigate':
-          window.location.href = cmd.href;
+          navigate(cmd.href);
           break;
         case 'cart':
           // cart opens via context
@@ -91,7 +93,7 @@ const CommandPalette = () => {
     } else {
       const productIndex = index - filteredCommands.length;
       if (productResults[productIndex]) {
-        window.location.href = `/product/${productResults[productIndex].id}`;
+        navigate(`/product/${productResults[productIndex].id}`);
         closeCommandPalette();
       }
     }

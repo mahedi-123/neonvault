@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Accessibility as AccessibilityIcon, Eye, Keyboard, Volume2, Brain, CheckCircle2, Target, Shield, Sparkles, MousePointer, Monitor, Smartphone, Mail } from 'lucide-react';
 
 const Accessibility = () => {

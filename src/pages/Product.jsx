@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Plus, Minus, Heart, ShoppingBag, Truck, Shield, RotateCcw, Check, Loader2, X } from 'lucide-react';
 import { cn, formatPrice } from '../utils/helpers';
 import Button from '../components/Button';
@@ -9,9 +9,11 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useUI } from '../context/UIContext';
 import { getProductById, products } from '../data/products';
+import { clipReveal } from '../lib/motion';
 
 const Product = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const product = getProductById(id);
   const { addItem } = useCart();
   const { toggleItem, isInWishlist } = useWishlist();
@@ -53,7 +55,7 @@ const Product = () => {
     addItem(product, quantity, selectedColor);
     await new Promise(r => setTimeout(r, 300));
     setAdding(false);
-    window.location.href = '/checkout';
+    navigate('/checkout');
   };
 
   const handleWishlist = () => {
@@ -90,11 +92,11 @@ const Product = () => {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.nav className="mb-8" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} aria-label="Breadcrumb">
           <ol className="flex items-center gap-2 text-sm text-text-muted flex-wrap">
-            <li><a href="/" className="hover:text-text transition-colors">Home</a></li>
+            <li><Link to="/" className="hover:text-text transition-colors">Home</Link></li>
             <li><span className="mx-2">/</span></li>
-            <li><a href="/shop" className="hover:text-text transition-colors">Shop</a></li>
+            <li><Link to="/shop" className="hover:text-text transition-colors">Shop</Link></li>
             <li><span className="mx-2">/</span></li>
-            <li><a href={`/shop?category=${product.category}`} className="hover:text-text transition-colors capitalize">{product.category.replace('-', ' ')}</a></li>
+            <li><Link to={`/shop?category=${product.category}`} className="hover:text-text transition-colors capitalize">{product.category.replace('-', ' ')}</Link></li>
             <li><span className="mx-2">/</span></li>
             <li className="text-text truncate max-w-xs">{product.name}</li>
           </ol>
@@ -107,7 +109,12 @@ const Product = () => {
           transition={{ duration: 0.6 }}
         >
           <div className="relative">
-            <div className="aspect-square lg:aspect-[3/4] rounded-2xl overflow-hidden bg-surface">
+            <motion.div
+              variants={clipReveal}
+              initial="hidden"
+              animate="visible"
+              className="aspect-square lg:aspect-[3/4] rounded-2xl overflow-hidden bg-surface"
+            >
               <AnimatePresence mode="wait">
                 <motion.img
                   key={activeImage}
@@ -149,28 +156,30 @@ const Product = () => {
                   <Badge variant="outOfStock" className="text-lg px-6 py-3">OUT OF STOCK</Badge>
                 </div>
               )}
-            </div>
+            </motion.div>
 
             {product.images.length > 1 && (
               <motion.div
                 className="flex gap-3 mt-4 overflow-x-auto pb-2 lg:hidden"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
+                transition={{ delay: 0.3 }}
               >
                 {product.images.map((img, i) => (
-                  <button
+                  <motion.button
                     key={i}
                     onClick={() => setActiveImage(i)}
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.95 }}
                     className={cn(
-                      'flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 transition-all',
-                      i === activeImage ? 'border-accent scale-105' : 'border-border/50 hover:border-border-hover'
+                      'flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border-2 transition-colors',
+                      i === activeImage ? 'border-accent' : 'border-border/50 hover:border-border-hover'
                     )}
                     aria-label={`View image ${i + 1}`}
                     aria-current={i === activeImage}
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
-                  </button>
+                  </motion.button>
                 ))}
               </motion.div>
             )}
@@ -180,21 +189,23 @@ const Product = () => {
                 className="hidden lg:flex gap-3 mt-4"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
+                transition={{ delay: 0.3 }}
               >
                 {product.images.slice(0, 6).map((img, i) => (
-                  <button
+                  <motion.button
                     key={i}
                     onClick={() => setActiveImage(i)}
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.95 }}
                     className={cn(
-                      'flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all',
-                      i === activeImage ? 'border-accent scale-105' : 'border-border/50 hover:border-border-hover'
+                      'flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors',
+                      i === activeImage ? 'border-accent' : 'border-border/50 hover:border-border-hover'
                     )}
                     aria-label={`View image ${i + 1}`}
                     aria-current={i === activeImage}
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
-                  </button>
+                  </motion.button>
                 ))}
               </motion.div>
             )}
@@ -273,7 +284,7 @@ const Product = () => {
                             'relative w-12 h-12 rounded-full border-2 transition-all',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
                             selectedColor === color.name
-                              ? 'border-accent scale-110 shadow-[0_0_0_3px_rgba(0,255,136,0.3)]'
+                              ? 'border-accent scale-110 shadow-[0_0_0_3px_rgba(139,92,246,0.3)]'
                               : 'border-border/50 hover:border-border-hover'
                           )}
                           style={{ backgroundColor: color.hex }}
@@ -326,27 +337,29 @@ const Product = () => {
                 </div>
 
                 <div className="flex gap-4 mb-8">
-                  <Button
-                    size="xl"
-                    fullWidth
-                    flex={1}
-                    leftIcon={<ShoppingBag className="w-5 h-5" />}
-                    onClick={handleAddToCart}
-                    loading={adding}
-                    disabled={!product.inStock}
-                  >
-                    {adding ? 'ADDING...' : 'ADD TO CART'}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="xl"
-                    fullWidth
-                    flex={1}
-                    onClick={handleBuyNow}
-                    disabled={!product.inStock || adding}
-                  >
-                    BUY NOW
-                  </Button>
+                  <motion.div className="flex-1" whileHover={{ y: -2 }} whileTap={{ y: 0 }}>
+                    <Button
+                      size="xl"
+                      fullWidth
+                      leftIcon={<ShoppingBag className="w-5 h-5" />}
+                      onClick={handleAddToCart}
+                      loading={adding}
+                      disabled={!product.inStock}
+                    >
+                      {adding ? 'ADDING...' : 'ADD TO CART'}
+                    </Button>
+                  </motion.div>
+                  <motion.div className="flex-1" whileHover={{ y: -2 }} whileTap={{ y: 0 }}>
+                    <Button
+                      variant="secondary"
+                      size="xl"
+                      fullWidth
+                      onClick={handleBuyNow}
+                      disabled={!product.inStock || adding}
+                    >
+                      BUY NOW
+                    </Button>
+                  </motion.div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 text-center">

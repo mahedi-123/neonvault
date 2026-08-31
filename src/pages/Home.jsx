@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, TrendingUp, Package, Heart, Zap } from 'lucide-react';
 import { cn } from '../utils/helpers';
@@ -7,11 +7,11 @@ import Badge from '../components/Badge';
 import ProductCard from '../components/ProductCard';
 import ProductGrid from '../components/ProductGrid';
 import Hero from '../components/Hero';
-import { getFeaturedProducts, getNewDrops, getBestSellers, getLimitedProducts, products } from '../data/products';
+import ProductShowcase from '../components/ProductShowcase';
+import { getNewDrops, getBestSellers, getLimitedProducts, products } from '../data/products';
 
 const Home = () => {
   const navigate = useNavigate();
-  const featuredProducts = getFeaturedProducts();
   const newDrops = getNewDrops();
   const bestSellers = getBestSellers();
   const limitedProducts = getLimitedProducts();
@@ -42,34 +42,7 @@ const Home = () => {
   return (
     <>
       <Hero />
-      <section className="relative py-20 lg:py-32" aria-labelledby="featured-heading">
-        <div className="absolute inset-0 grid-pattern opacity-10" />
-        <div className="absolute inset-0 noise-overlay" />
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <Badge variant="primary" className="mb-4 inline-flex" dot>
-              <Sparkles className="w-3 h-3 mr-1" /> FEATURED
-            </Badge>
-            <h2 id="featured-heading" className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight mb-6">
-              EDITOR'S PICKS
-            </h2>
-            <p className="text-lg text-text-muted max-w-2xl mx-auto">
-              Our top recommendations — best sellers, new arrivals, and limited editions all in one place.
-            </p>
-          </motion.div>
-
-          <ProductGrid
-            initialProducts={featuredProducts}
-            className="mb-16"
-          />
-        </div>
-      </section>
+      <ProductShowcase />
 
       <section className="relative py-20 lg:py-32" aria-labelledby="features-heading">
         <div className="absolute inset-0 grid-pattern opacity-10" />
@@ -85,7 +58,7 @@ const Home = () => {
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
-                className="group p-6 lg:p-8 bg-surface/50 border border-border/50 rounded-2xl transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(0,255,136,0.1)]"
+                className="group p-6 lg:p-8 bg-surface/50 border border-border/50 rounded-2xl transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(139,92,246,0.12)]"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + index * 0.1 }}

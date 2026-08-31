@@ -1,17 +1,19 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import ProductCard from './ProductCard';
 import { useFilters } from '../context/FilterContext';
 import { getProductsByCategory, searchProducts, products } from '../data/products';
 import { cn } from '../utils/helpers';
 
-const ProductGrid = ({ 
-  initialProducts, 
-  category = 'all', 
+const ProductGrid = ({
+  initialProducts,
+  category = 'all',
   searchQuery = '',
   className = '',
   showLoadMore = false,
-  itemsPerPage = 12 
+  itemsPerPage = 12,
+  viewMode = 'grid',
 }) => {
+  const prefersReducedMotion = useReducedMotion();
   const { selectedCategories, priceRange, sortBy, inStockOnly, showNew, showLimited, showBestSellers } = useFilters();
 
   let filteredProducts = initialProducts || products;
@@ -75,13 +77,32 @@ const ProductGrid = ({
 
   return (
     <>
-      <div className={cn('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6', className)} role="list" aria-label="Products">
-        {displayProducts.map((product, index) => (
-          <motion.div key={product.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03, duration: 0.4 }}>
-            <ProductCard product={product} />
-          </motion.div>
-        ))}
-      </div>
+      <motion.div
+        layout={!prefersReducedMotion}
+        className={cn(
+          viewMode === 'list'
+            ? 'flex flex-col gap-3 sm:gap-4'
+            : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6',
+          className
+        )}
+        role="list"
+        aria-label="Products"
+      >
+        <AnimatePresence initial={false}>
+          {displayProducts.map((product, index) => (
+            <motion.div
+              key={product.id}
+              layout={!prefersReducedMotion}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.15 } }}
+              transition={{ delay: Math.min(index, 12) * 0.03, duration: 0.4 }}
+            >
+              <ProductCard product={product} variant={viewMode === 'list' ? 'list' : 'default'} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </motion.div>
 
       {displayProducts.length === 0 && (
         <motion.div className="text-center py-16" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>

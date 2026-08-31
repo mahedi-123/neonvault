@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { MessageSquare, Camera, PlayCircle, MessageCircle, GitBranch, Mail, ArrowRight } from 'lucide-react';
 import { cn } from '../utils/helpers';
 
@@ -51,9 +52,9 @@ const Footer = () => {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12 mb-16">
           <motion.div className="lg:col-span-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <div className="flex items-center gap-2 text-xl font-display font-bold text-text mb-6">
+            <Link to="/" className="flex items-center gap-2 text-xl font-display font-bold text-text mb-6">
               <span className="text-accent">NEON</span>VAULT
-            </div>
+            </Link>
             <p className="text-text-muted mb-6 max-w-xs">
               Premium futuristic technology for those who refuse to compromise. Curated smart gadgets, gaming gear, and lifestyle tech.
             </p>
@@ -83,12 +84,12 @@ const Footer = () => {
               <ul className="space-y-3">
                 {links.map((link, linkIndex) => (
                   <motion.li key={link.label} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + catIndex * 0.05 + linkIndex * 0.03 }}>
-                    <a
-                      href={link.href}
+                    <Link
+                      to={link.href}
                       className="text-sm text-text-muted hover:text-text hover:text-accent transition-colors"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </motion.li>
                 ))}
               </ul>
@@ -139,10 +140,10 @@ const Footer = () => {
             <span>for the future</span>
           </div>
           <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
-            <a href="/privacy" className="hover:text-text transition-colors">Privacy</a>
-            <a href="/terms" className="hover:text-text transition-colors">Terms</a>
-            <a href="/cookies" className="hover:text-text transition-colors">Cookies</a>
-            <a href="/accessibility" className="hover:text-text transition-colors">Accessibility</a>
+            <Link to="/privacy" className="hover:text-text transition-colors">Privacy</Link>
+            <Link to="/terms" className="hover:text-text transition-colors">Terms</Link>
+            <Link to="/cookies" className="hover:text-text transition-colors">Cookies</Link>
+            <Link to="/accessibility" className="hover:text-text transition-colors">Accessibility</Link>
           </div>
         </motion.div>
       </div>

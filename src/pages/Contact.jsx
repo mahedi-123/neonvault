@@ -1,9 +1,10 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Mail, MapPin, Phone, MessageSquare, Loader2, Check } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import { useState } from 'react';
+import { viewportOnce } from '../lib/motion';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -152,7 +153,7 @@ const Contact = () => {
           </div>
         </motion.div>
 
-        <motion.div className="mt-20" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }}>
+        <motion.div className="mt-20" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={viewportOnce} transition={{ duration: 0.5 }}>
           <h2 className="text-2xl font-display font-bold text-text mb-8 text-center">FREQUENTLY ASKED QUESTIONS</h2>
           <div className="max-w-3xl mx-auto space-y-4">
             {[
@@ -162,7 +163,7 @@ const Contact = () => {
               { q: 'What warranty do your products have?', a: 'All products come with a 2-year manufacturer warranty. Extended warranty options are available at checkout.' },
               { q: 'How can I track my order?', a: 'Once your order ships, you\'ll receive a tracking number via email. You can also check order status in your account.' },
             ].map((faq, i) => (
-              <motion.details key={i} className="group p-6 bg-surface/50 border border-border/50 rounded-xl" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.05 }}>
+              <motion.details key={i} className="group p-6 bg-surface/50 border border-border/50 rounded-xl" initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={viewportOnce} transition={{ delay: Math.min(i, 5) * 0.05 }}>
                 <summary className="flex items-center justify-between cursor-pointer list-none text-text font-body font-medium">
                   {faq.q}
                   <svg className="w-5 h-5 text-text-muted group-open:rotate-180 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>

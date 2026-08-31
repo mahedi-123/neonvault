@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Minus, Trash2, ShoppingBag, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn, formatPrice } from '../utils/helpers';
 import Button from './Button';

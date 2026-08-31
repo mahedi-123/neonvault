@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { HelpCircle, Search, ChevronDown, ChevronUp, Mail, Truck, RotateCcw, Shield, CreditCard, User, Settings } from 'lucide-react';
 import { useState } from 'react';
 

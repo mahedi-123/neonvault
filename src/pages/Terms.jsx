@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { FileText, Shield, CreditCard, Truck, RotateCcw, Gavel, Globe, AlertCircle, Settings, Mail } from 'lucide-react';
 
 const sectionIcons = {
