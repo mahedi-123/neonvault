@@ -70,7 +70,7 @@ const ZoneNav = () => {
           <motion.nav
             key="world-nav-desktop"
             aria-label="Explore vault zones"
-            className="pointer-events-auto fixed right-4 top-1/2 z-10 hidden w-60 -translate-y-1/2 lg:block"
+            className="pointer-events-auto fixed right-4 top-1/2 z-10 hidden max-h-[80vh] w-60 -translate-y-1/2 lg:block"
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 12 }}
@@ -80,7 +80,7 @@ const ZoneNav = () => {
               <p className="px-3 pb-2 pt-1.5 font-body text-[10px] font-semibold uppercase tracking-[0.24em] text-text-subtle">
                 World
               </p>
-              <div className="space-y-0.5">
+              <div className="max-h-[62vh] space-y-0.5 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-width:thin]">
                 {zones.map((zone) => (
                   <NavItem
                     key={zone.id}

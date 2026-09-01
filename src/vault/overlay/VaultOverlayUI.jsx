@@ -1,24 +1,40 @@
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { X } from 'lucide-react';
+import { Gamepad2, X } from 'lucide-react';
 import { useVaultStore } from '../state/vaultStore';
 import { usePlayerHasMoved } from '../state/playerStore';
+import { SCHEME_DRAG, openControlPicker, useControls } from '../state/controlStore';
 import { getZoneById } from '../zoneConfig';
 import ZoneNav from './ZoneNav';
 import ZonePanel from './ZonePanel';
 import IntroDialog from './IntroDialog';
 import Minimap from './Minimap';
 import EnterPrompt from './EnterPrompt';
+import ControlPicker from './ControlPicker';
+import SteerPad from './SteerPad';
 
 /**
  * The one-time "you can move" prompt. Shown after the briefing ends and
  * removed for good the first time the player actually walks — a control hint
  * that stays on screen after you have used the control is just clutter.
+ *
+ * It says whatever the player chose in the picker, not both: having just
+ * picked a scheme, being told about the other one is noise.
  */
-const WalkHint = () => {
+const WalkHint = ({ isTouch = false }) => {
   const mode = useVaultStore((s) => s.mode);
   const hasMoved = usePlayerHasMoved();
-  const visible = mode === 'overview' && !hasMoved;
+  const scheme = useControls((s) => s.scheme);
+  const visible = mode === 'overview' && !hasMoved && scheme !== null;
+
+  const text =
+    scheme === SCHEME_DRAG
+      ? isTouch
+        ? 'Hold and drag to walk — pull further to run'
+        : 'Hold the mouse button and drag — pull further to run'
+      : isTouch
+        ? 'Tap the floor to walk'
+        : 'Use WASD, or tap the floor to walk';
 
   return (
     <AnimatePresence>
@@ -31,8 +47,7 @@ const WalkHint = () => {
           exit={{ opacity: 0, y: 8 }}
           transition={{ duration: 2.4, times: [0, 0.15, 0.6, 0.8, 1], repeat: Infinity }}
         >
-          <span className="hidden lg:inline">Use WASD, or tap the floor to walk</span>
-          <span className="lg:hidden">Tap the floor to walk</span>
+          {text}
         </motion.p>
       )}
     </AnimatePresence>
@@ -40,9 +55,10 @@ const WalkHint = () => {
 };
 
 /** All DOM chrome for the vault: breadcrumb, skip link, guide, minimap,
- *  zone navigator and the exhibition panel. */
-const VaultOverlayUI = () => {
+ *  zone navigator, control picker and the exhibition panel. */
+const VaultOverlayUI = ({ isTouch = false }) => {
   const activeZoneId = useVaultStore((s) => s.activeZoneId);
+  const mode = useVaultStore((s) => s.mode);
   const zone = activeZoneId ? getZoneById(activeZoneId) : null;
 
   return (
@@ -65,8 +81,23 @@ const VaultOverlayUI = () => {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="shrink-0"
+          className="flex shrink-0 items-center gap-2"
         >
+          {/* Only offered while the player actually has the floor: mid-dive or
+              with a panel open there is nothing for a control scheme to do. */}
+          {mode === 'overview' && (
+            <button
+              type="button"
+              onClick={() => openControlPicker()}
+              title="Change controls"
+              className="pointer-events-auto inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-border/50 bg-surface/70 px-3 py-2 font-body text-xs font-medium text-text-muted backdrop-blur-xl transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:px-4 sm:text-sm"
+            >
+              <Gamepad2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">Controls</span>
+              <span className="sr-only sm:hidden">Change controls</span>
+            </button>
+          )}
+
           <Link
             to="/shop"
             className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-surface/70 px-3 py-2 font-body text-xs font-medium text-text-muted backdrop-blur-xl transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg sm:gap-2 sm:px-4 sm:text-sm"
@@ -81,9 +112,11 @@ const VaultOverlayUI = () => {
       <IntroDialog />
       <Minimap />
       <EnterPrompt />
-      <WalkHint />
+      <WalkHint isTouch={isTouch} />
       <ZoneNav />
       <ZonePanel />
+      <SteerPad />
+      <ControlPicker isTouch={isTouch} />
     </div>
   );
 };

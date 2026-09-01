@@ -67,6 +67,31 @@ const ZonePanel = () => {
                 </motion.div>
               </div>
 
+              {/* Districts that are built but not yet stocked say so, in the
+                  same placard voice as the rest. An empty product grid would
+                  read as a bug; this reads as a floor with room on it — and
+                  the day stock arrives, the flag comes off in zoneConfig and
+                  nothing else changes. */}
+              {zone.comingSoon && (
+                <motion.div
+                  variants={fadeUp}
+                  className="flex flex-col items-start gap-4 rounded-2xl border border-dashed border-border/70 bg-bg/40 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8"
+                >
+                  <div>
+                    <p className="font-body text-xs font-semibold uppercase tracking-[0.24em] text-accent-secondary">
+                      Opening soon
+                    </p>
+                    <p className="mt-2 max-w-md font-body text-sm text-text-muted">
+                      This wing is built and lit, but the shelves are still
+                      empty. Nothing here is buyable yet.
+                    </p>
+                  </div>
+                  <Button variant="secondary" onClick={() => startReturn()} className="shrink-0">
+                    KEEP EXPLORING
+                  </Button>
+                </motion.div>
+              )}
+
               <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-12">
                 {featured && (
                   <motion.div variants={fadeUp} className="lg:col-span-5">

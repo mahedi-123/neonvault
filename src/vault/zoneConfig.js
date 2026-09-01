@@ -1,16 +1,13 @@
-import { getFeaturedProducts, getLimitedProducts, getNewDrops, products } from '../data/products';
+// Explicit .js extension (the rest of the app omits it and lets Vite
+// resolve). This module is also imported by scripts/check-zones.mjs, which
+// runs under plain Node ESM where extensionless paths do not resolve.
+import { getFeaturedProducts, getLimitedProducts, getNewDrops, products } from '../data/products.js';
 
 /**
- * Static zone definitions for the NEON VAULT world. Positions are world
- * units on the vault floor (y is up); poses are camera eye/target pairs
- * consumed directly by CameraRig's CameraControls.setLookAt calls. Nothing
- * here duplicates product data — each zone just points at the existing
- * selectors/filters in src/data/products.js.
- *
- * Layout: CORE sits closest to the entry point as the monumental center.
- * The other seven spread across a wide, depth-staggered arc behind and
- * around it — no two zones share an x coordinate, which keeps every zone
- * legible from the overview camera instead of stacking in screen space.
+ * The NEON VAULT world: its size, its camera rig, and the districts laid out
+ * on it. Positions are world units on the floor (y is up). Nothing here
+ * duplicates product data — each district points at the existing selectors
+ * in src/data/products.js, or declares itself unstocked.
  */
 
 const audioProducts = () =>
@@ -39,59 +36,103 @@ const smartHomeProducts = () =>
 /* =========================================================
    WORLD
 
-   The floor is a disc, not an infinite plane — the player is
-   clamped inside it so there is no edge to walk off and no
-   void to get lost in. Every zone sits comfortably within
-   WORLD_RADIUS of WORLD_CENTER.
+   The floor is a disc, not an infinite plane — the player is clamped
+   inside it so there is no edge to walk off and no void to get lost in.
+
+   Grown from a 21-unit disc holding eight districts to a 31-unit one
+   holding thirteen. The old floor had every exhibit visible from the
+   spawn point, which made "explore" a word for "look around once"; at
+   this size the far districts are genuinely over the horizon and the
+   minimap starts earning its place.
    ========================================================= */
 
-/** [x, z] of the floor disc's centre. Matches VaultFloor's geometry. */
+/** [x, z] of the floor disc's centre. CORE stands here. */
 export const WORLD_CENTER = [0, -12];
-export const WORLD_RADIUS = 21;
+export const WORLD_RADIUS = 31;
 
-/** Where the courier is standing when the tour begins — well clear of
- *  CORE's trigger radius so the first exhibit isn't opened for them. */
-export const PLAYER_SPAWN = [0, 0, 6];
+/** Where the courier starts: outside the outer ring, facing in, so the
+ *  first thing they see is the whole city rather than the inside of it. */
+export const PLAYER_SPAWN = [0, 0, 14];
+
+/** Ring radii the districts are laid out on, measured from WORLD_CENTER. */
+const INNER_RING = 12;
+const OUTER_RING = 24;
+
+/** Polar helper — angle is measured from +Z (the entrance direction),
+ *  turning toward +X, which keeps the layout table below readable as a
+ *  compass rather than as raw coordinates. */
+const at = (angleDeg, radius) => {
+  const a = (angleDeg * Math.PI) / 180;
+  return [
+    WORLD_CENTER[0] + Math.sin(a) * radius,
+    0,
+    WORLD_CENTER[1] + Math.cos(a) * radius,
+  ];
+};
 
 
 /* =========================================================
    CAMERA
-
-   The establishing shot still uses fixed poses; once the
-   intro hands over, the camera is a third-person follow rig
-   parameterised by these offsets instead.
    ========================================================= */
 
 export const ENTRY_POSE = {
-  eye: [0, 26, 30],
-  target: [0, 2, -8],
+  eye: [0, 34, 44],
+  target: [0, 2, -10],
 };
 
 export const MOBILE_ENTRY_POSE = {
-  eye: [0, 20, 24],
-  target: [0, 2, -6],
+  eye: [0, 26, 34],
+  target: [0, 2, -8],
 };
 
-/** Third-person rig: how far behind and above the courier the camera rides,
- *  and how high up their body it aims. */
+/**
+ * Third-person rig: how far behind and above the courier the camera rides,
+ * how high up their body it aims, and how far it sits off their shoulder.
+ *
+ * `shoulder` exists because every approach mark puts the courier directly
+ * between the camera and the exhibit — dead-centre framing meant walking up
+ * to a watch or a keyboard and seeing your own back instead of the product.
+ * Offsetting the whole rig sideways slides the courier into the left of the
+ * frame and leaves the exhibit ahead of them clear.
+ */
 export const FOLLOW = {
-  distance: 6.6,
-  height: 3.5,
-  lookHeight: 1.35,
+  // Pulled back a notch from 6.6/3.5. The tighter rig framed the courier
+  // beautifully and the world barely at all: on a floor this size you spend
+  // most of your time deciding where to go next, and that decision needs
+  // more of the room in frame than one district at a time.
+  distance: 8.0,
+  height: 4.1,
+  lookHeight: 1.45,
+  shoulder: 1.25,
 };
 
 export const MOBILE_FOLLOW = {
-  distance: 7.6,
-  height: 4.1,
-  lookHeight: 1.45,
+  // Wider again on a phone, where the same field of view has a third of the
+  // screen width to put it in.
+  distance: 9.0,
+  height: 4.8,
+  lookHeight: 1.55,
+  shoulder: 0.95,
 };
 
 
 /* =========================================================
-   ZONES
+   DISTRICTS
+
+   CORE holds the centre. Four high-traffic categories sit on the inner
+   ring where you meet them first; the rest spread around the outer ring.
+   Ring positions are 45° apart inside and 45° apart outside, offset by
+   22.5° from each other, so nothing on one ring hides anything on the
+   other from the spawn point.
+
+   `comingSoon` districts are built and walkable but hold no stock yet —
+   they exist so the world reads as a shop with room to grow rather than
+   eight things in a field, and so adding a category later is a data
+   change rather than a layout change.
    ========================================================= */
 
 const rawZones = [
+  /* ---------- centre ---------- */
   {
     id: 'core',
     variant: 'core',
@@ -99,16 +140,19 @@ const rawZones = [
     index: 1,
     description:
       'The heart of the vault — our most coveted technology, gathered under one light.',
-    position: [0, 0, -5],
+    position: [WORLD_CENTER[0], 0, WORLD_CENTER[1]],
     platformRadius: 3.5,
     accent: 'mixed',
+    // CORE keeps a hand-authored pose: its architecture is monumental and
+    // wants to be met head-on from a distance, not framed like a product.
     focusPose: {
-      eye: [0, 2.85, 2.4],
-      target: [0, 2.75, -5.6],
+      eye: [0, 3.4, -4.6],
+      target: [0, 3.0, -12.6],
     },
     getProducts: () => getFeaturedProducts().slice(0, 5),
   },
 
+  /* ---------- inner ring ---------- */
   {
     id: 'new-drops',
     variant: 'newdrops',
@@ -116,122 +160,143 @@ const rawZones = [
     index: 2,
     description:
       'Just landed. The newest arrivals, before they reach the main floor.',
-    position: [-4.5, 0, 2],
-    platformRadius: 2.3,
+    position: at(0, INNER_RING),
+    platformRadius: 2.6,
     accent: 'violet',
-    focusPose: {
-      eye: [-4.5, 3.6, 7.5],
-      target: [-4.5, 2.3, 2],
-    },
     getProducts: () => getNewDrops().slice(0, 5),
   },
-
   {
     id: 'gaming',
     variant: 'gaming',
     label: 'GAMING',
     index: 3,
-    description:
-      'Competitive-grade gear, built for zero compromise.',
-    position: [9, 0, 0],
+    description: 'Competitive-grade gear, built for zero compromise.',
+    position: at(90, INNER_RING),
     platformRadius: 2.8,
     accent: 'cyan',
-    focusPose: {
-      eye: [9, 3.7, 5.5],
-      target: [9, 2.3, 0],
-    },
     getProducts: () => gamingProducts().slice(0, 5),
   },
-
-  {
-    id: 'audio-lab',
-    variant: 'audio',
-    label: 'AUDIO LAB',
-    index: 4,
-    description:
-      'Precision sound, engineered for immersion.',
-    position: [-11, 0, -6],
-    platformRadius: 2.6,
-    accent: 'cyan',
-    focusPose: {
-      eye: [-11, 3.7, -1],
-      target: [-11, 2.3, -6],
-    },
-    getProducts: () => audioProducts().slice(0, 5),
-  },
-
-  {
-    id: 'computing-lab',
-    variant: 'computing',
-    label: 'COMPUTING LAB',
-    index: 5,
-    description:
-      'Precision instruments for people who work at the edge.',
-    position: [11, 0, -9],
-    platformRadius: 2.7,
-    accent: 'violet',
-    focusPose: {
-      eye: [11, 3.7, -4],
-      target: [11, 2.3, -9],
-    },
-    getProducts: () => computingProducts().slice(0, 5),
-  },
-
-  {
-    id: 'wearables',
-    variant: 'wearables',
-    label: 'WEARABLES',
-    index: 6,
-    description:
-      'Technology worn close — quiet, precise, always on.',
-    position: [-7, 0, -16],
-    platformRadius: 2.2,
-    accent: 'violet',
-    focusPose: {
-      eye: [-7, 3.4, -11],
-      target: [-7, 2.1, -16],
-    },
-    getProducts: () => wearablesProducts().slice(0, 5),
-  },
-
-  {
-    id: 'smart-home',
-    variant: 'smarthome',
-    label: 'SMART HOME',
-    index: 7,
-    description:
-      'A quietly intelligent home, built around one connected core.',
-    position: [6, 0, -18],
-    platformRadius: 2.5,
-    accent: 'cyan',
-    focusPose: {
-      eye: [6, 3.6, -13],
-      target: [6, 2.3, -18],
-    },
-    getProducts: () => smartHomeProducts().slice(0, 5),
-  },
-
   {
     id: 'vault-limited',
     variant: 'vault',
     label: 'VAULT / LIMITED',
-    index: 8,
+    index: 4,
     description:
       'Rare drops, held back from the main floor. Once gone, they are gone.',
-
-    /* Moved farther back so the Vault/Limited section
-       has more separation and reads clearly in overview. */
-    position: [3.5, 0, -25],
-
+    position: at(180, INNER_RING),
     platformRadius: 3.1,
     accent: 'cyan',
-
-    focusPose: {
-      eye: [3.5, 3.8, -19],
-      target: [3.5, 2.3, -25],
-    },
-
     getProducts: () => getLimitedProducts().slice(0, 5),
+  },
+  {
+    id: 'audio-lab',
+    variant: 'audio',
+    label: 'AUDIO LAB',
+    index: 5,
+    description: 'Precision sound, engineered for immersion.',
+    position: at(270, INNER_RING),
+    platformRadius: 2.6,
+    accent: 'cyan',
+    getProducts: () => audioProducts().slice(0, 5),
+  },
+
+  /* ---------- outer ring ---------- */
+  {
+    id: 'handhelds',
+    variant: 'handhelds',
+    label: 'HANDHELDS',
+    index: 6,
+    description:
+      'Phones, tablets and the pocket-sized machines that run the rest of it.',
+    position: at(22.5, OUTER_RING),
+    platformRadius: 2.5,
+    accent: 'violet',
+    comingSoon: true,
+    getProducts: () => [],
+  },
+  {
+    id: 'computing-lab',
+    variant: 'computing',
+    label: 'COMPUTING LAB',
+    index: 7,
+    description: 'Precision instruments for people who work at the edge.',
+    position: at(67.5, OUTER_RING),
+    platformRadius: 2.7,
+    accent: 'violet',
+    getProducts: () => computingProducts().slice(0, 5),
+  },
+  {
+    id: 'creator-studio',
+    variant: 'creator',
+    label: 'CREATOR STUDIO',
+    index: 8,
+    description:
+      'Cameras, glass and light — the room where the work gets made.',
+    position: at(112.5, OUTER_RING),
+    platformRadius: 2.7,
+    accent: 'violet',
+    comingSoon: true,
+    getProducts: () => [],
+  },
+  {
+    id: 'power-cell',
+    variant: 'power',
+    label: 'POWER CELL',
+    index: 9,
+    description: 'Cells, chargers and the quiet business of staying on.',
+    position: at(157.5, OUTER_RING),
+    platformRadius: 2.5,
+    accent: 'cyan',
+    comingSoon: true,
+    getProducts: () => [],
+  },
+  {
+    id: 'flight-deck',
+    variant: 'drones',
+    label: 'FLIGHT DECK',
+    index: 10,
+    description: 'Drones and personal mobility — everything that leaves the floor.',
+    position: at(202.5, OUTER_RING),
+    platformRadius: 2.8,
+    accent: 'cyan',
+    comingSoon: true,
+    getProducts: () => [],
+  },
+  {
+    id: 'smart-home',
+    variant: 'smarthome',
+    label: 'SMART HOME',
+    index: 11,
+    description:
+      'A quietly intelligent home, built around one connected core.',
+    position: at(247.5, OUTER_RING),
+    platformRadius: 2.5,
+    accent: 'cyan',
+    getProducts: () => smartHomeProducts().slice(0, 5),
+  },
+  {
+    id: 'wearables',
+    variant: 'wearables',
+    label: 'WEARABLES',
+    index: 12,
+    description: 'Technology worn close — quiet, precise, always on.',
+    position: at(292.5, OUTER_RING),
+    platformRadius: 2.4,
+    accent: 'violet',
+    getProducts: () => wearablesProducts().slice(0, 5),
+  },
+  {
+    id: 'vision-xr',
+    variant: 'vision',
+    label: 'VISION / XR',
+    index: 13,
+    description:
+      'Headsets and glasses — the shelf where the screen stops being a screen.',
+    position: at(337.5, OUTER_RING),
+    platformRadius: 2.6,
+    accent: 'violet',
+    comingSoon: true,
+    getProducts: () => [],
   },
 ];
 
@@ -239,40 +304,58 @@ const rawZones = [
 /* =========================================================
    DERIVED WALKABLE PROPERTIES
 
-   approach:      the mark on the floor the courier walks to. Mostly the
-                  entrance (+Z) side of the platform so an exhibit is never
-                  approached from behind — but hand-placed rather than
-                  derived, because four of the zones sit close enough that a
-                  purely +Z mark would land inside a NEIGHBOUR's trigger
-                  radius and open the wrong exhibit. Each mark below is
-                  angled away from its nearest neighbour.
-   triggerRadius: step inside this and the exhibit opens itself. Proportional
-                  to the platform, so bigger zones claim more floor.
+   approach:      the mark on the floor the courier walks to — on the side
+                  facing the middle of the world, since that is where
+                  everybody arrives from.
+   triggerRadius: step inside this and the district offers to let you in.
+   focusPose:     where the camera parks once you accept, derived from the
+                  approach direction so all thirteen frame consistently.
 
-   Invariant worth preserving if these numbers are ever retuned: every
-   zone's own approach mark must be the nearest trigger radius (measured as
-   distance / triggerRadius, which is what Player.jsx compares).
+   Hand-placing these stopped being necessary at this world size: on the
+   old cramped floor an approach mark could land inside a NEIGHBOUR's
+   trigger radius and open the wrong exhibit, which needed a lookup table
+   of angled marks. The two-ring layout leaves ~13 units between the
+   closest pair, comfortably more than their two radii combined, so the
+   simple derivation is safe again. `npm run check:zones` — see
+   scripts/check-zones.mjs — asserts that, and should be re-run if these
+   positions are ever retuned.
    ========================================================= */
 
-const APPROACH = {
-  core: [0, -0.4],
-  'new-drops': [-6.6, 4.6],
-  gaming: [9, 4.2],
-  'audio-lab': [-11, -1.8],
-  'computing-lab': [13.4, -6.4],
-  wearables: [-7, -12.2],
-  'smart-home': [8.6, -15.6],
-  'vault-limited': [0.4, -21.6],
-};
+const APPROACH_GAP = 1.7;
 
-export const zones = rawZones.map(zone => ({
-  ...zone,
-  approach: APPROACH[zone.id] ?? [
-    zone.position[0],
-    zone.position[2] + zone.platformRadius + 1.6,
-  ],
-  triggerRadius: zone.platformRadius + 2.2,
-}));
+export const zones = rawZones.map(zone => {
+  // Unit vector pointing from the district back toward the middle of the
+  // world. CORE is the middle, so it faces the entrance instead.
+  const dx = WORLD_CENTER[0] - zone.position[0];
+  const dz = WORLD_CENTER[1] - zone.position[2];
+  const len = Math.hypot(dx, dz);
+  const ux = len < 0.001 ? 0 : dx / len;
+  const uz = len < 0.001 ? 1 : dz / len;
+
+  const reach = zone.platformRadius + APPROACH_GAP;
+  const approach = [
+    zone.position[0] + ux * reach,
+    zone.position[2] + uz * reach,
+  ];
+
+  const focusReach = zone.platformRadius + 4.2;
+  const focusPose = zone.focusPose ?? {
+    eye: [
+      zone.position[0] + ux * focusReach,
+      3.4,
+      zone.position[2] + uz * focusReach,
+    ],
+    target: [zone.position[0], 2.0, zone.position[2]],
+  };
+
+  return {
+    ...zone,
+    comingSoon: zone.comingSoon ?? false,
+    approach,
+    focusPose,
+    triggerRadius: zone.platformRadius + 2.6,
+  };
+});
 
 
 /* =========================================================

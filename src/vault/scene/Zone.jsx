@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { AdditiveBlending, CanvasTexture, DoubleSide, MathUtils } from 'three';
@@ -11,20 +11,29 @@ const VIOLET = '#8b5cf6';
 const CYAN = '#22d3ee';
 const ACCENT_HEX = { violet: VIOLET, cyan: CYAN, mixed: VIOLET };
 const LABEL_HEIGHT = {
-  core: 7.8, audio: 4.45, gaming: 4.65, vault: 4.15,
-  computing: 3.1, wearables: 2.7, smarthome: 2.5, newdrops: 4.5,
+  core: 7.8, audio: 4.2, gaming: 3.5, vault: 4.15,
+  computing: 3.4, wearables: 3.9, smarthome: 3.0, newdrops: 4.2,
+  handhelds: 3.9, vision: 4.3, power: 4.0, creator: 4.2, drones: 4.0,
 };
 /**
- * Approximate top of each variant's own geometry — used only to keep the new
+ * Approximate top of each variant's own geometry — used only to keep the
  * label→exhibit beam (below) from running down the inside of a solid
  * object. A flat fraction of LABEL_HEIGHT put the beam entirely inside
  * Audio Lab's tower (fully hidden — a label was tuned with only ~0.5 units
  * of clearance above its object, not enough for a naive fraction-based
  * beam). These are read off each variant's own mesh positions/sizes above.
+ *
+ * Re-measured when the exhibits became recognisable objects rather than
+ * abstract sculptures: the headphone stand, the gamepad and the pod are all
+ * shorter than the towers they replaced, and the workstation, watch and
+ * house are all taller. Both tables have to move together — a label left at
+ * the old height either floats detached above a short exhibit or sinks into
+ * a tall one.
  */
 const OBJECT_TOP_HEIGHT = {
-  core: 3.7, audio: 3.6, gaming: 4.1, vault: 3.2,
-  computing: 1.8, wearables: 2.75, smarthome: 1.4, newdrops: 3.7,
+  core: 3.7, audio: 2.95, gaming: 2.5, vault: 3.3,
+  computing: 2.3, wearables: 3.0, smarthome: 1.7, newdrops: 3.1,
+  handhelds: 2.9, vision: 3.2, power: 2.9, creator: 3.4, drones: 2.9,
 };
 
 /**
@@ -254,125 +263,666 @@ function CoreGeometry({ factorRef, isTouch }) {
   );
 }
 
-/** AUDIO LAB — a resonator tower passed through two solid archways, built
- *  from real lit material rather than thin decorative loops, so the "sound
- *  wave" motif reads as something you could walk under, not a ring floating
- *  in space. A thin emissive seam on each arch's inner face is the only
- *  glowing accent. */
-function AudioGeometry({ factorRef, accentColor }) {
-  const towerMatRef = useRef(null);
-  const archMatRefs = useRef([]);
-  const seamMatRefs = useRef([]);
+/* =========================================================
+   THE EXHIBITS
 
-  useFrame(() => {
+   Each zone shows the KIND OF THING it sells, not an abstract
+   monument. The first pass gave every zone a generic sculpture — a
+   tower, a cone, some stacked slabs — which looked coherent but told
+   a shopper nothing: you had to read the floating label to know
+   whether you were standing in front of headphones or a keyboard. On
+   a floor you navigate by walking, the object has to be the sign.
+
+   So: Audio is headphones over a live equaliser, Gaming is a
+   gamepad, Computing is a workstation, Wearables is a watch on a
+   stand, Smart Home is a house, Vault is a vault door, New Drops is
+   a supply pod still settling from its landing.
+
+   Shared contract for every variant below:
+     factorRef.current  0 → ~1.3, the zone's own attention level
+                        (idle / hovered / active). Everything
+                        emissive scales off it so an unvisited zone
+                        stays quiet and the one you are at burns.
+     accentColor        the zone's violet or cyan.
+     isTouch            drop per-frame detail on phones.
+
+   All motion is written straight to refs inside useFrame — none of
+   it goes through React state, so eight animated exhibits cost zero
+   re-renders.
+   ========================================================= */
+
+/** AUDIO LAB — studio headphones on a stand, over a live spectrum
+ *  analyser, with sound rings washing up from the base. */
+function AudioGeometry({ factorRef, accentColor, isTouch = false }) {
+  const bandMatRef = useRef(null);
+  const cupMatRefs = useRef([]);
+  const barRefs = useRef([]);
+  const barMatRefs = useRef([]);
+  const waveRefs = useRef([]);
+  const waveMatRefs = useRef([]);
+  const clock = useRef(0);
+
+  const BAR_COUNT = isTouch ? 7 : 11;
+  const WAVE_COUNT = isTouch ? 2 : 3;
+  const BAR_BASE = 0.22;
+  const BAR_UNIT = 1;
+
+  const bars = useMemo(
+    () =>
+      Array.from({ length: BAR_COUNT }, (_, i) => {
+        // A shallow arc facing the approach side, so the analyser reads as
+        // a row of levels from wherever you walk up rather than a picket
+        // fence seen edge-on.
+        const spread = 1.5;
+        const t = BAR_COUNT === 1 ? 0.5 : i / (BAR_COUNT - 1);
+        const angle = -spread / 2 + t * spread;
+        return {
+          key: i,
+          x: Math.sin(angle) * 1.25,
+          z: Math.cos(angle) * 1.25,
+          rot: angle,
+        };
+      }),
+    [BAR_COUNT]
+  );
+
+  useFrame((_, delta) => {
     const f = factorRef.current;
-    if (towerMatRef.current) towerMatRef.current.emissiveIntensity = 0.2 * f;
-    archMatRefs.current.forEach((m) => { if (m) m.emissiveIntensity = 0.08 * f; });
-    seamMatRefs.current.forEach((m, i) => {
-      if (m) m.opacity = Math.min(1, (0.5 + i * 0.2) * f);
+    clock.current += delta;
+    const t = clock.current;
+
+    if (bandMatRef.current) bandMatRef.current.emissiveIntensity = 0.24 * f;
+    cupMatRefs.current.forEach((m) => {
+      if (m) m.emissiveIntensity = 0.34 * f;
+    });
+
+    barRefs.current.forEach((bar, i) => {
+      if (!bar) return;
+      // Three summed sines at unrelated rates: neighbouring bars never
+      // march in step, which is what separates "spectrum" from "wave".
+      const raw =
+        Math.sin(t * 2.1 + i * 0.7) * 0.5 +
+        Math.sin(t * 3.3 + i * 1.31) * 0.3 +
+        Math.sin(t * 1.2 + i * 0.37) * 0.2;
+      const h = 0.14 + Math.abs(raw) * 1.0;
+      bar.scale.y = h;
+      bar.position.y = BAR_BASE + (h * BAR_UNIT) / 2;
+    });
+    barMatRefs.current.forEach((m) => {
+      if (m) m.opacity = Math.min(1, 0.9 * f);
+    });
+
+    waveRefs.current.forEach((w, i) => {
+      if (!w) return;
+      const phase = (t * 0.42 + i / WAVE_COUNT) % 1;
+      w.position.y = 0.12 + phase * 2.5;
+      w.scale.setScalar(0.55 + phase * 1.5);
+      const m = waveMatRefs.current[i];
+      // Fades as it climbs, so the ring dissolves instead of popping out.
+      if (m) m.opacity = (1 - phase) * 0.5 * Math.min(1, f);
     });
   });
 
   return (
     <group>
-      <mesh position={[0, 1.9, 0]}>
-        <cylinderGeometry args={[0.5, 0.62, 3.4, 24]} />
-        <meshStandardMaterial ref={towerMatRef} color="#0f0e14" metalness={0.65} roughness={0.35} emissive={accentColor} emissiveIntensity={0.18} />
+      {/* Stand */}
+      <mesh position={[0, 0.14, 0]}>
+        <cylinderGeometry args={[0.62, 0.72, 0.28, 20]} />
+        <meshStandardMaterial color="#100e18" metalness={0.6} roughness={0.4} />
       </mesh>
-      {[1.15, 1.75].map((radius, i) => (
-        <group key={radius}>
-          <mesh position={[0, 1.05 + i * 0.55, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[radius, 0.16, 16, 48]} />
-            <meshStandardMaterial
-              ref={(m) => { archMatRefs.current[i] = m; }}
-              color="#0d0c12"
-              metalness={0.55}
-              roughness={0.45}
-              emissive={accentColor}
-              emissiveIntensity={0.06}
-            />
-          </mesh>
-          <mesh position={[0, 1.05 + i * 0.55, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[radius, 0.02, 10, 48]} />
-            <meshBasicMaterial ref={(m) => { seamMatRefs.current[i] = m; }} color={accentColor} transparent opacity={0.5} toneMapped={false} />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  );
-}
+      <mesh position={[0, 1.15, 0]}>
+        <cylinderGeometry args={[0.1, 0.14, 1.8, 12]} />
+        <meshStandardMaterial color="#191331" metalness={0.7} roughness={0.3} />
+      </mesh>
 
-/** GAMING — two leaning gateway slabs framing a glowing seam and a floating panel. */
-function GamingGeometry({ factorRef, accentColor }) {
-  const seamMatRef = useRef(null);
-  const panelMatRef = useRef(null);
-  const slabMatRefs = useRef([]);
-
-  useFrame(() => {
-    const f = factorRef.current;
-    if (seamMatRef.current) seamMatRef.current.opacity = Math.min(1, 0.6 * f);
-    if (panelMatRef.current) panelMatRef.current.emissiveIntensity = 0.3 * f;
-    slabMatRefs.current.forEach((m) => { if (m) m.emissiveIntensity = 0.12 * f; });
-  });
-
-  return (
-    <group>
-      {[-1, 1].map((side, i) => (
-        <mesh key={side} position={[side * 1.3, 1.55, 0]} rotation={[0, 0, -side * 0.14]}>
-          <boxGeometry args={[0.5, 3.1, 1.9]} />
+      {/* Headphones: a half-torus headband with a cup hanging off each end */}
+      <group position={[0, 2.28, 0]}>
+        <mesh rotation={[0, 0, 0]}>
+          <torusGeometry args={[0.62, 0.075, 10, 28, Math.PI]} />
           <meshStandardMaterial
-            ref={(m) => { slabMatRefs.current[i] = m; }}
-            color="#0e0d13"
-            metalness={0.7}
-            roughness={0.3}
+            ref={bandMatRef}
+            color="#1a1430"
+            metalness={0.65}
+            roughness={0.32}
             emissive={accentColor}
-            emissiveIntensity={0.1}
+            emissiveIntensity={0.2}
+          />
+        </mesh>
+        {[-1, 1].map((side, i) => (
+          <group key={side} position={[side * 0.62, -0.1, 0]}>
+            <mesh rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.3, 0.34, 0.26, 20]} />
+              <meshStandardMaterial
+                ref={(m) => {
+                  cupMatRefs.current[i] = m;
+                }}
+                color="#141024"
+                metalness={0.6}
+                roughness={0.35}
+                emissive={accentColor}
+                emissiveIntensity={0.3}
+              />
+            </mesh>
+            {/* Lit driver ring on the outer face of each cup */}
+            <mesh position={[side * 0.14, 0, 0]} rotation={[0, side * (Math.PI / 2), 0]}>
+              <ringGeometry args={[0.16, 0.24, 20]} />
+              <meshBasicMaterial color={accentColor} transparent opacity={0.8} toneMapped={false} side={DoubleSide} />
+            </mesh>
+          </group>
+        ))}
+      </group>
+
+      {/* Spectrum analyser */}
+      {bars.map((bar, i) => (
+        <mesh
+          key={bar.key}
+          ref={(m) => {
+            barRefs.current[i] = m;
+          }}
+          position={[bar.x, BAR_BASE, bar.z]}
+          rotation={[0, bar.rot, 0]}
+        >
+          <boxGeometry args={[0.11, BAR_UNIT, 0.11]} />
+          <meshBasicMaterial
+            ref={(m) => {
+              barMatRefs.current[i] = m;
+            }}
+            color={accentColor}
+            transparent
+            opacity={0.9}
+            toneMapped={false}
           />
         </mesh>
       ))}
 
-      <mesh position={[0, 1.55, 0]}>
-        <boxGeometry args={[0.06, 2.8, 0.06]} />
-        <meshBasicMaterial ref={seamMatRef} color={accentColor} transparent opacity={0.6} toneMapped={false} />
-      </mesh>
-
-      <mesh position={[0, 3.55, -0.28]} rotation={[-0.18, 0, 0]}>
-        <boxGeometry args={[1.8, 1.1, 0.06]} />
-        <meshStandardMaterial ref={panelMatRef} color="#07070a" metalness={0.88} roughness={0.1} emissive={accentColor} emissiveIntensity={0.25} />
-      </mesh>
+      {/* Sound rings rising off the plinth */}
+      {Array.from({ length: WAVE_COUNT }, (_, i) => (
+        <mesh
+          key={`wave-${i}`}
+          ref={(m) => {
+            waveRefs.current[i] = m;
+          }}
+          rotation={[Math.PI / 2, 0, 0]}
+        >
+          <torusGeometry args={[0.8, 0.018, 8, 40]} />
+          <meshBasicMaterial
+            ref={(m) => {
+              waveMatRefs.current[i] = m;
+            }}
+            color={accentColor}
+            transparent
+            opacity={0}
+            toneMapped={false}
+            blending={AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }
 
-/** VAULT / LIMITED — a heavy circular drum set inside a recessed rim wall. */
-function VaultGeometry({ factorRef, accentColor }) {
-  const drumMatRef = useRef(null);
-  const ringMatRefs = useRef([]);
+/** GAMING — an oversized gamepad hanging in the air, face buttons
+ *  firing in sequence like an attract-mode demo. */
+function GamingGeometry({ factorRef, accentColor, isTouch = false }) {
+  const padRef = useRef(null);
+  const bodyMatRefs = useRef([]);
+  const buttonMatRefs = useRef([]);
+  const stickRefs = useRef([]);
+  const screenMatRef = useRef(null);
+  const clock = useRef(0);
 
-  useFrame(() => {
+  // Diamond layout, the arrangement every controller since the SNES has used.
+  const BUTTONS = [
+    { x: 0, y: 0.16 },
+    { x: 0.17, y: 0 },
+    { x: 0, y: -0.16 },
+    { x: -0.17, y: 0 },
+  ];
+
+  useFrame((_, delta) => {
     const f = factorRef.current;
-    if (drumMatRef.current) drumMatRef.current.emissiveIntensity = 0.14 * f;
+    clock.current += delta;
+    const t = clock.current;
+
+    if (padRef.current) {
+      padRef.current.position.y = 2.2 + Math.sin(t * 0.9) * 0.09;
+      padRef.current.rotation.y = Math.sin(t * 0.45) * 0.28;
+      padRef.current.rotation.z = Math.sin(t * 0.7 + 1) * 0.05;
+    }
+
+    bodyMatRefs.current.forEach((m) => {
+      if (m) m.emissiveIntensity = 0.14 * f;
+    });
+    if (screenMatRef.current) screenMatRef.current.opacity = Math.min(0.9, 0.7 * f);
+
+    // Buttons light one after another — a controller nobody is holding
+    // still needs to look like it is being played.
+    buttonMatRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const beat = (t * 1.7 + i * 0.25) % 1;
+      const flash = beat < 0.22 ? 1 - beat / 0.22 : 0;
+      m.opacity = Math.min(1, (0.28 + flash * 0.72) * f);
+    });
+
+    if (!isTouch) {
+      stickRefs.current.forEach((s, i) => {
+        if (!s) return;
+        // Thumbsticks lean as if someone were steering.
+        s.rotation.x = Math.sin(t * 1.6 + i * 2.1) * 0.24;
+        s.rotation.z = Math.cos(t * 1.3 + i * 1.4) * 0.24;
+      });
+    }
+  });
+
+  return (
+    <group>
+      {/* Column the pad floats above */}
+      <mesh position={[0, 0.7, 0]}>
+        <cylinderGeometry args={[0.16, 0.34, 1.4, 12]} />
+        <meshStandardMaterial color="#150f28" metalness={0.65} roughness={0.35} />
+      </mesh>
+
+      {/* Scaled well down from where this started. Built at full world
+          units the pad measured over two metres across — wider than the
+          courier is tall — and walking up to GAMING put a wall of plastic
+          across the whole frame. It still reads as an oversized hero prop
+          at this size, which is the intent; it just no longer eats the
+          room. */}
+      <group ref={padRef} position={[0, 2.2, 0]} scale={0.62}>
+        {/* Body */}
+        <mesh>
+          <boxGeometry args={[1.5, 0.44, 0.72]} />
+          <meshStandardMaterial
+            ref={(m) => {
+              bodyMatRefs.current[0] = m;
+            }}
+            color="#171128"
+            metalness={0.7}
+            roughness={0.3}
+            emissive={accentColor}
+            emissiveIntensity={0.12}
+          />
+        </mesh>
+
+        {/* Grips, angled down and out */}
+        {[-1, 1].map((side, i) => (
+          <mesh key={side} position={[side * 0.82, -0.34, 0.04]} rotation={[0, 0, side * 0.42]}>
+            <capsuleGeometry args={[0.19, 0.5, 3, 10]} />
+            <meshStandardMaterial
+              ref={(m) => {
+                bodyMatRefs.current[i + 1] = m;
+              }}
+              color="#171128"
+              metalness={0.7}
+              roughness={0.3}
+              emissive={accentColor}
+              emissiveIntensity={0.12}
+            />
+          </mesh>
+        ))}
+
+        {/* Shoulder bumpers */}
+        {[-1, 1].map((side) => (
+          <mesh key={`b${side}`} position={[side * 0.52, 0.2, -0.34]}>
+            <boxGeometry args={[0.42, 0.12, 0.14]} />
+            <meshStandardMaterial color="#241a44" metalness={0.6} roughness={0.35} />
+          </mesh>
+        ))}
+
+        {/* D-pad — a plus made of two crossed bars */}
+        <group position={[-0.44, 0.24, 0.12]}>
+          <mesh>
+            <boxGeometry args={[0.32, 0.05, 0.1]} />
+            <meshBasicMaterial color={accentColor} transparent opacity={0.75} toneMapped={false} />
+          </mesh>
+          <mesh>
+            <boxGeometry args={[0.1, 0.05, 0.32]} />
+            <meshBasicMaterial color={accentColor} transparent opacity={0.75} toneMapped={false} />
+          </mesh>
+        </group>
+
+        {/* Face buttons */}
+        <group position={[0.46, 0.24, 0.06]}>
+          {BUTTONS.map((b, i) => (
+            <mesh key={i} position={[b.x, 0, -b.y]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.065, 0.065, 0.06, 12]} />
+              <meshBasicMaterial
+                ref={(m) => {
+                  buttonMatRefs.current[i] = m;
+                }}
+                color={accentColor}
+                transparent
+                opacity={0.4}
+                toneMapped={false}
+              />
+            </mesh>
+          ))}
+        </group>
+
+        {/* Thumbsticks */}
+        {[-0.2, 0.2].map((x, i) => (
+          <group
+            key={x}
+            ref={(g) => {
+              stickRefs.current[i] = g;
+            }}
+            position={[x, 0.2, 0.24]}
+          >
+            <mesh position={[0, 0.07, 0]}>
+              <cylinderGeometry args={[0.1, 0.08, 0.14, 12]} />
+              <meshStandardMaterial color="#2a1f4d" metalness={0.6} roughness={0.4} />
+            </mesh>
+          </group>
+        ))}
+
+        {/* Centre status strip */}
+        <mesh position={[0, 0.235, -0.14]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.34, 0.08]} />
+          <meshBasicMaterial
+            ref={screenMatRef}
+            color={accentColor}
+            transparent
+            opacity={0.7}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/** VAULT / LIMITED — a bank vault door: rotating lock wheel, dial
+ *  rings, and bolts that throw and retract on a slow cycle. */
+function VaultGeometry({ factorRef, accentColor }) {
+  const doorMatRef = useRef(null);
+  const wheelRef = useRef(null);
+  const ringMatRefs = useRef([]);
+  const boltRefs = useRef([]);
+  const boltMatRefs = useRef([]);
+  const clock = useRef(0);
+
+  const BOLTS = 6;
+
+  useFrame((_, delta) => {
+    const f = factorRef.current;
+    clock.current += delta;
+    const t = clock.current;
+
+    if (doorMatRef.current) doorMatRef.current.emissiveIntensity = 0.16 * f;
+    if (wheelRef.current) wheelRef.current.rotation.z -= delta * 0.32;
     ringMatRefs.current.forEach((m, i) => {
-      if (m) m.opacity = Math.min(1, (0.5 + i * 0.2) * f);
+      if (m) m.opacity = Math.min(1, (0.45 + i * 0.18) * f);
+    });
+
+    // Throw / hold / retract / hold — a four-beat cycle, so the door reads
+    // as a mechanism doing something rather than a wheel spinning forever.
+    const cycle = (t * 0.22) % 1;
+    let extend;
+    if (cycle < 0.2) extend = cycle / 0.2;
+    else if (cycle < 0.5) extend = 1;
+    else if (cycle < 0.7) extend = 1 - (cycle - 0.5) / 0.2;
+    else extend = 0;
+
+    boltRefs.current.forEach((bolt) => {
+      if (bolt) bolt.position.x = 1.28 + extend * 0.3;
+    });
+    boltMatRefs.current.forEach((m) => {
+      if (m) m.opacity = Math.min(1, (0.3 + extend * 0.6) * f);
     });
   });
 
   return (
     <group>
+      {/* Recessed rim wall around the door */}
       <mesh position={[0, 0.4, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[3.0, 0.2, 12, 48]} />
         <meshStandardMaterial color="#0c0b10" metalness={0.2} roughness={0.85} />
       </mesh>
 
-      <group rotation={[Math.PI / 2, 0, 0]} position={[0, 1.9, 0]}>
+      {/* The door faces +Z, which is the side every approach mark is on */}
+      <group position={[0, 1.95, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        {/* Door frame */}
         <mesh>
-          <cylinderGeometry args={[1.3, 1.3, 0.55, 40]} />
-          <meshStandardMaterial ref={drumMatRef} color="#0e0d13" metalness={0.8} roughness={0.22} emissive={accentColor} emissiveIntensity={0.1} />
+          <torusGeometry args={[1.5, 0.16, 12, 44]} />
+          <meshStandardMaterial color="#12101c" metalness={0.7} roughness={0.35} />
         </mesh>
-        {[0.75, 1.05].map((radius, i) => (
-          <mesh key={radius} position={[0, 0, 0.29]}>
-            <torusGeometry args={[radius, 0.03, 12, 64]} />
-            <meshBasicMaterial ref={(m) => { ringMatRefs.current[i] = m; }} color={accentColor} transparent opacity={0.5} toneMapped={false} />
+
+        {/* Door slab */}
+        <mesh>
+          <cylinderGeometry args={[1.32, 1.32, 0.5, 44]} />
+          <meshStandardMaterial
+            ref={doorMatRef}
+            color="#0e0d13"
+            metalness={0.82}
+            roughness={0.2}
+            emissive={accentColor}
+            emissiveIntensity={0.12}
+          />
+        </mesh>
+
+        {/* Dial rings on the face */}
+        {[0.55, 0.9, 1.15].map((radius, i) => (
+          <mesh key={radius} position={[0, 0.26, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[radius, 0.025, 10, 56]} />
+            <meshBasicMaterial
+              ref={(m) => {
+                ringMatRefs.current[i] = m;
+              }}
+              color={accentColor}
+              transparent
+              opacity={0.5}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+
+        {/* Lock wheel: hub plus five spokes, turning slowly */}
+        <group ref={wheelRef} position={[0, 0.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.17, 0.17, 0.16, 14]} />
+            <meshStandardMaterial color="#2b2050" metalness={0.75} roughness={0.28} />
+          </mesh>
+          {Array.from({ length: 5 }, (_, i) => {
+            const a = (i / 5) * Math.PI * 2;
+            return (
+              <mesh key={i} position={[Math.cos(a) * 0.3, Math.sin(a) * 0.3, 0]} rotation={[0, 0, a]}>
+                <boxGeometry args={[0.62, 0.07, 0.07]} />
+                <meshStandardMaterial
+                  color="#38287a"
+                  metalness={0.7}
+                  roughness={0.3}
+                  emissive={accentColor}
+                  emissiveIntensity={0.3}
+                />
+              </mesh>
+            );
+          })}
+        </group>
+
+        {/* Locking bolts around the rim */}
+        {Array.from({ length: BOLTS }, (_, i) => {
+          const a = (i / BOLTS) * Math.PI * 2;
+          return (
+            <group key={i} rotation={[0, 0, a]}>
+              <mesh
+                ref={(m) => {
+                  boltRefs.current[i] = m;
+                }}
+                position={[1.28, 0, 0]}
+              >
+                <boxGeometry args={[0.4, 0.13, 0.13]} />
+                <meshBasicMaterial
+                  ref={(m) => {
+                    boltMatRefs.current[i] = m;
+                  }}
+                  color={accentColor}
+                  transparent
+                  opacity={0.5}
+                  toneMapped={false}
+                />
+              </mesh>
+            </group>
+          );
+        })}
+      </group>
+    </group>
+  );
+}
+
+/** COMPUTING LAB — a workstation: a monitor scrolling code over a
+ *  keyboard whose keys ripple as if being typed on. */
+function ComputingGeometry({ factorRef, accentColor, isTouch = false }) {
+  const screenMatRef = useRef(null);
+  const codeRefs = useRef([]);
+  const codeMatRefs = useRef([]);
+  const keyMatRefs = useRef([]);
+  const bodyMatRefs = useRef([]);
+  const clock = useRef(0);
+
+  const CODE_LINES = isTouch ? 4 : 7;
+  const KEYS = 8;
+  const SCREEN_H = 1.02;
+
+  const codeWidths = useMemo(
+    // Fixed pseudo-random widths — ragged like real code, identical every
+    // mount so the exhibit doesn't reshuffle when React remounts it.
+    () => [0.72, 0.44, 0.86, 0.3, 0.62, 0.5, 0.78, 0.38, 0.66, 0.52],
+    []
+  );
+
+  useFrame((_, delta) => {
+    const f = factorRef.current;
+    clock.current += delta;
+    const t = clock.current;
+
+    if (screenMatRef.current) screenMatRef.current.opacity = Math.min(0.5, 0.4 * f);
+    bodyMatRefs.current.forEach((m) => {
+      if (m) m.emissiveIntensity = 0.1 * f;
+    });
+
+    codeRefs.current.forEach((line, i) => {
+      if (!line) return;
+      // Wraps within the screen's own height, so text scrolls up the
+      // display instead of sliding out past its bezel.
+      const phase = ((t * 0.18 + i / CODE_LINES) % 1);
+      line.position.y = -SCREEN_H / 2 + phase * SCREEN_H;
+      const m = codeMatRefs.current[i];
+      if (m) {
+        // Dim at both ends of the travel so lines fade in and out rather
+        // than appearing and vanishing at the bezel.
+        const edge = Math.min(phase, 1 - phase) / 0.15;
+        m.opacity = Math.min(1, edge) * 0.85 * Math.min(1, f);
+      }
+    });
+
+    keyMatRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const beat = (t * 2.4 + i * 0.37) % 1;
+      const strike = beat < 0.14 ? 1 - beat / 0.14 : 0;
+      m.opacity = Math.min(1, (0.18 + strike * 0.8) * f);
+    });
+  });
+
+  return (
+    <group>
+      {/* Desk */}
+      <mesh position={[0, 0.5, 0]}>
+        <boxGeometry args={[2.6, 0.12, 1.35]} />
+        <meshStandardMaterial
+          ref={(m) => {
+            bodyMatRefs.current[0] = m;
+          }}
+          color="#100e18"
+          metalness={0.6}
+          roughness={0.4}
+          emissive={accentColor}
+          emissiveIntensity={0.08}
+        />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * 1.1, 0.22, 0]}>
+          <boxGeometry args={[0.12, 0.45, 1.1]} />
+          <meshStandardMaterial color="#0d0b14" metalness={0.5} roughness={0.5} />
+        </mesh>
+      ))}
+
+      {/* Monitor stand */}
+      <mesh position={[0, 0.78, -0.3]}>
+        <cylinderGeometry args={[0.07, 0.11, 0.44, 10]} />
+        <meshStandardMaterial color="#1d1638" metalness={0.7} roughness={0.3} />
+      </mesh>
+
+      {/* Monitor */}
+      <group position={[0, 1.62, -0.3]} rotation={[-0.12, 0, 0]}>
+        <mesh>
+          <boxGeometry args={[2.0, 1.2, 0.08]} />
+          <meshStandardMaterial
+            ref={(m) => {
+              bodyMatRefs.current[1] = m;
+            }}
+            color="#0b0912"
+            metalness={0.75}
+            roughness={0.25}
+            emissive={accentColor}
+            emissiveIntensity={0.1}
+          />
+        </mesh>
+        {/* Screen wash */}
+        <mesh position={[0, 0, 0.045]}>
+          <planeGeometry args={[1.86, 1.06]} />
+          <meshBasicMaterial
+            ref={screenMatRef}
+            color={accentColor}
+            transparent
+            opacity={0.4}
+            toneMapped={false}
+          />
+        </mesh>
+        {/* Scrolling code lines */}
+        {Array.from({ length: CODE_LINES }, (_, i) => {
+          const w = codeWidths[i % codeWidths.length] * 1.5;
+          return (
+            <mesh
+              key={i}
+              ref={(m) => {
+                codeRefs.current[i] = m;
+              }}
+              position={[-0.75 + w / 2, 0, 0.05]}
+            >
+              <planeGeometry args={[w, 0.055]} />
+              <meshBasicMaterial
+                ref={(m) => {
+                  codeMatRefs.current[i] = m;
+                }}
+                color={accentColor}
+                transparent
+                opacity={0}
+                toneMapped={false}
+              />
+            </mesh>
+          );
+        })}
+      </group>
+
+      {/* Keyboard */}
+      <group position={[0, 0.6, 0.42]} rotation={[-0.08, 0, 0]}>
+        <mesh>
+          <boxGeometry args={[1.7, 0.07, 0.56]} />
+          <meshStandardMaterial color="#151024" metalness={0.65} roughness={0.35} />
+        </mesh>
+        {Array.from({ length: KEYS }, (_, i) => (
+          <mesh key={i} position={[-0.72 + (i % 4) * 0.48, 0.05, i < 4 ? -0.13 : 0.13]}>
+            <boxGeometry args={[0.36, 0.03, 0.18]} />
+            <meshBasicMaterial
+              ref={(m) => {
+                keyMatRefs.current[i] = m;
+              }}
+              color={accentColor}
+              transparent
+              opacity={0.2}
+              toneMapped={false}
+            />
           </mesh>
         ))}
       </group>
@@ -380,126 +930,844 @@ function VaultGeometry({ factorRef, accentColor }) {
   );
 }
 
-/** COMPUTING LAB — terraced instrument slabs, stepping up like a bench of tools. */
-function ComputingGeometry({ factorRef, accentColor }) {
-  const edgeMatRefs = useRef([]);
-  const bodyMatRefs = useRef([]);
-  const tiers = [
-    { y: 0.5, w: 3.0, d: 1.7, rot: 0 },
-    { y: 1.1, w: 2.2, d: 1.6, rot: 0.05 },
-    { y: 1.7, w: 1.5, d: 1.4, rot: -0.05 },
-  ];
-
-  useFrame(() => {
-    const f = factorRef.current;
-    edgeMatRefs.current.forEach((m) => { if (m) m.opacity = Math.min(1, 0.55 * f); });
-    bodyMatRefs.current.forEach((m) => { if (m) m.emissiveIntensity = 0.12 * f; });
-  });
-
-  return (
-    <group>
-      {tiers.map((tier, i) => (
-        <group key={i} position={[0, tier.y, 0]} rotation={[0, tier.rot, 0]}>
-          <mesh>
-            <boxGeometry args={[tier.w, 0.22, tier.d]} />
-            <meshStandardMaterial
-              ref={(m) => { bodyMatRefs.current[i] = m; }}
-              color="#0d0c12"
-              metalness={0.7}
-              roughness={0.3}
-              emissive={accentColor}
-              emissiveIntensity={0.1}
-            />
-          </mesh>
-          <mesh position={[0, 0.12, tier.d / 2 - 0.02]}>
-            <boxGeometry args={[tier.w - 0.2, 0.02, 0.03]} />
-            <meshBasicMaterial ref={(m) => { edgeMatRefs.current[i] = m; }} color={accentColor} transparent opacity={0.5} toneMapped={false} />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  );
-}
-
-/** WEARABLES — a slender, human-scale pedestal with two slow gyroscopic halo rings. */
-function WearablesGeometry({ factorRef, accentColor, isTouch }) {
-  const outerRingRef = useRef(null);
-  const innerRingRef = useRef(null);
-  const ringMatRefs = useRef([]);
-  const stemMatRef = useRef(null);
+/** WEARABLES — a smartwatch on a wrist stand, its face sweeping a
+ *  heartbeat arc, with one slow gyro halo left over from the old
+ *  pedestal for continuity with the rest of the floor. */
+function WearablesGeometry({ factorRef, accentColor, isTouch = false }) {
+  const haloRef = useRef(null);
+  const haloMatRef = useRef(null);
+  const caseMatRef = useRef(null);
+  const faceMatRef = useRef(null);
+  const sweepRef = useRef(null);
+  const pulseRef = useRef(null);
+  const pulseMatRef = useRef(null);
+  const clock = useRef(0);
 
   useFrame((_, delta) => {
     const f = factorRef.current;
-    if (!isTouch) {
-      if (outerRingRef.current) outerRingRef.current.rotation.z += delta * 0.15;
-      if (innerRingRef.current) innerRingRef.current.rotation.x += delta * 0.2;
-    }
-    if (stemMatRef.current) stemMatRef.current.emissiveIntensity = 0.15 * f;
-    ringMatRefs.current.forEach((m, i) => { if (m) m.opacity = Math.min(1, (0.55 + i * 0.15) * f); });
+    clock.current += delta;
+    const t = clock.current;
+
+    if (!isTouch && haloRef.current) haloRef.current.rotation.z += delta * 0.16;
+    if (haloMatRef.current) haloMatRef.current.opacity = Math.min(1, 0.5 * f);
+    if (caseMatRef.current) caseMatRef.current.emissiveIntensity = 0.2 * f;
+    if (faceMatRef.current) faceMatRef.current.opacity = Math.min(0.85, 0.7 * f);
+
+    // Second hand sweeping the dial.
+    if (sweepRef.current) sweepRef.current.rotation.z = -t * 1.1;
+
+    // Health-ring pulse: a quick double beat, then rest — the rhythm is
+    // what makes it read as a heart rate rather than a loading spinner.
+    const beat = (t * 0.75) % 1;
+    const thump =
+      beat < 0.1 ? beat / 0.1 : beat < 0.22 ? 1 - (beat - 0.1) / 0.12 : beat < 0.3 ? (beat - 0.22) / 0.08 * 0.6 : beat < 0.45 ? 0.6 - (beat - 0.3) / 0.15 * 0.6 : 0;
+    if (pulseRef.current) pulseRef.current.scale.setScalar(1 + thump * 0.16);
+    if (pulseMatRef.current) pulseMatRef.current.opacity = Math.min(1, (0.3 + thump * 0.65) * f);
   });
 
   return (
     <group>
-      <mesh position={[0, 0.9, 0]}>
-        <cylinderGeometry args={[0.14, 0.2, 1.6, 16]} />
-        <meshStandardMaterial ref={stemMatRef} color="#100e15" metalness={0.7} roughness={0.3} emissive={accentColor} emissiveIntensity={0.12} />
+      {/* Plinth + the curved "wrist" the watch is displayed on */}
+      <mesh position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[0.52, 0.6, 0.24, 18]} />
+        <meshStandardMaterial color="#100e18" metalness={0.6} roughness={0.4} />
       </mesh>
-      <group ref={outerRingRef} position={[0, 1.85, 0]} rotation={[0.5, 0, 0.2]}>
-        <mesh>
-          <torusGeometry args={[0.85, 0.025, 10, 56]} />
-          <meshBasicMaterial ref={(m) => { ringMatRefs.current[0] = m; }} color={accentColor} transparent opacity={0.6} toneMapped={false} />
+      <mesh position={[0, 1.02, 0]}>
+        <cylinderGeometry args={[0.09, 0.12, 1.55, 12]} />
+        <meshStandardMaterial color="#1c1638" metalness={0.7} roughness={0.3} />
+      </mesh>
+
+      {/* Strap: a torus standing upright, with the case set into its top.
+          Scaled up as a unit — at true wrist proportions the watch was a
+          detail on a pole next to a two-metre courier, and the zone read as
+          an empty plinth from anywhere but right on top of it. */}
+      {/* Tilted toward the approach side, the way a watch sits in a shop
+          cradle. Lying flat, the dial faced straight up and everything on
+          it — the sweep hand, the activity ring — was invisible to anyone
+          standing in front of the plinth. */}
+      <group position={[0, 2.0, 0]} scale={2} rotation={[-0.42, 0, 0]}>
+        <mesh rotation={[0, Math.PI / 2, 0]}>
+          <torusGeometry args={[0.36, 0.055, 10, 30]} />
+          <meshStandardMaterial color="#1a1430" metalness={0.5} roughness={0.45} />
         </mesh>
+
+        {/* Watch case */}
+        <group position={[0, 0.38, 0]}>
+          <mesh>
+            <boxGeometry args={[0.46, 0.12, 0.52]} />
+            <meshStandardMaterial
+              ref={caseMatRef}
+              color="#171128"
+              metalness={0.75}
+              roughness={0.25}
+              emissive={accentColor}
+              emissiveIntensity={0.18}
+            />
+          </mesh>
+
+          {/* Dial */}
+          <mesh position={[0, 0.062, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.4, 0.46]} />
+            <meshBasicMaterial
+              ref={faceMatRef}
+              color={accentColor}
+              transparent
+              opacity={0.7}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Activity ring, beating */}
+          <mesh ref={pulseRef} position={[0, 0.066, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.13, 0.17, 24]} />
+            <meshBasicMaterial
+              ref={pulseMatRef}
+              color="#ffffff"
+              transparent
+              opacity={0.5}
+              toneMapped={false}
+            />
+          </mesh>
+
+          {/* Sweeping hand */}
+          <group ref={sweepRef} position={[0, 0.07, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh position={[0, 0.09, 0]}>
+              <planeGeometry args={[0.022, 0.18]} />
+              <meshBasicMaterial color="#ffffff" transparent opacity={0.9} toneMapped={false} />
+            </mesh>
+          </group>
+
+          {/* Crown */}
+          <mesh position={[0.25, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.035, 0.035, 0.06, 10]} />
+            <meshStandardMaterial color="#2c2150" metalness={0.8} roughness={0.2} />
+          </mesh>
+        </group>
       </group>
-      <group ref={innerRingRef} position={[0, 1.85, 0]} rotation={[1.1, 0.3, 0]}>
+
+      {/* Gyro halo */}
+      <group ref={haloRef} position={[0, 2.5, 0]} rotation={[0.5, 0, 0.2]}>
         <mesh>
-          <torusGeometry args={[0.6, 0.02, 10, 48]} />
-          <meshBasicMaterial ref={(m) => { ringMatRefs.current[1] = m; }} color={accentColor} transparent opacity={0.5} toneMapped={false} />
+          <torusGeometry args={[1.05, 0.024, 10, 48]} />
+          <meshBasicMaterial
+            ref={haloMatRef}
+            color={accentColor}
+            transparent
+            opacity={0.5}
+            toneMapped={false}
+          />
         </mesh>
       </group>
     </group>
   );
 }
 
-/** SMART HOME — a low central hub with three small satellite pavilions. */
-function SmartHomeGeometry({ factorRef, accentColor }) {
-  const hubMatRef = useRef(null);
-  const satMatRefs = useRef([]);
-  const beamMatRefs = useRef([]);
+/** SMART HOME — a house with rooms lighting themselves, and satellite
+ *  devices trading pulses with it along visible links. */
+const SMART_HOME_SATS = 3;
+const SMART_HOME_RADIUS = 1.85;
 
-  useFrame(() => {
+function SmartHomeGeometry({ factorRef, accentColor, isTouch = false }) {
+  const wallMatRef = useRef(null);
+  const roofMatRef = useRef(null);
+  const windowMatRefs = useRef([]);
+  const nodeGroupRef = useRef(null);
+  const pulseRefs = useRef([]);
+  const pulseMatRefs = useRef([]);
+  const linkMatRefs = useRef([]);
+  const clock = useRef(0);
+
+  const SATS = SMART_HOME_SATS;
+  const RADIUS = SMART_HOME_RADIUS;
+
+  const sats = useMemo(
+    () =>
+      Array.from({ length: SMART_HOME_SATS }, (_, i) => {
+        const angle = (i / SMART_HOME_SATS) * Math.PI * 2 + 0.4;
+        return {
+          key: i,
+          angle,
+          x: Math.cos(angle) * SMART_HOME_RADIUS,
+          z: Math.sin(angle) * SMART_HOME_RADIUS,
+        };
+      }),
+    []
+  );
+
+  useFrame((_, delta) => {
     const f = factorRef.current;
-    if (hubMatRef.current) hubMatRef.current.emissiveIntensity = 0.16 * f;
-    satMatRefs.current.forEach((m) => { if (m) m.emissiveIntensity = 0.1 * f; });
-    beamMatRefs.current.forEach((m) => { if (m) m.opacity = Math.min(0.8, 0.4 * f); });
+    clock.current += delta;
+    const t = clock.current;
+
+    if (wallMatRef.current) wallMatRef.current.emissiveIntensity = 0.1 * f;
+    if (roofMatRef.current) roofMatRef.current.emissiveIntensity = 0.16 * f;
+
+    // Each window runs on its own slow cycle — rooms in a real house are
+    // never all on or all off together.
+    windowMatRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const lit = 0.5 + Math.sin(t * (0.5 + i * 0.23) + i * 2.1) * 0.5;
+      m.opacity = Math.min(1, (0.2 + lit * 0.75) * f);
+    });
+
+    if (!isTouch && nodeGroupRef.current) nodeGroupRef.current.rotation.y += delta * 0.12;
+
+    linkMatRefs.current.forEach((m) => {
+      if (m) m.opacity = Math.min(0.6, 0.3 * f);
+    });
+
+    // A dot runs the length of each link, hub → device, staggered.
+    pulseRefs.current.forEach((p, i) => {
+      if (!p) return;
+      const phase = ((t * 0.55 + i / SATS) % 1);
+      p.position.x = 0.35 + phase * (RADIUS - 0.5);
+      const m = pulseMatRefs.current[i];
+      if (m) m.opacity = Math.sin(phase * Math.PI) * 0.95 * Math.min(1, f);
+    });
   });
 
   return (
     <group>
-      <mesh position={[0, 0.75, 0]}>
-        <sphereGeometry args={[0.62, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial ref={hubMatRef} color="#0f0e14" metalness={0.6} roughness={0.35} emissive={accentColor} emissiveIntensity={0.14} />
-      </mesh>
-      {[0, 1, 2].map((i) => {
-        const angle = (i / 3) * Math.PI * 2 + 0.4;
-        const r = 1.7;
-        const x = Math.cos(angle) * r;
-        const z = Math.sin(angle) * r;
-        return (
-          <group key={i}>
-            <mesh position={[x, 0.35, z]}>
-              <boxGeometry args={[0.45, 0.7, 0.45]} />
-              <meshStandardMaterial
-                ref={(m) => { satMatRefs.current[i] = m; }}
-                color="#0c0b10"
-                metalness={0.6}
-                roughness={0.35}
-                emissive={accentColor}
-                emissiveIntensity={0.1}
+      {/* House */}
+      <group position={[0, 0, 0]}>
+        <mesh position={[0, 0.5, 0]}>
+          <boxGeometry args={[1.25, 1.0, 1.15]} />
+          <meshStandardMaterial
+            ref={wallMatRef}
+            color="#141024"
+            metalness={0.5}
+            roughness={0.45}
+            emissive={accentColor}
+            emissiveIntensity={0.08}
+          />
+        </mesh>
+
+        {/* Roof — a 4-sided cone is a pyramid; turned 45° to square it up */}
+        <mesh position={[0, 1.32, 0]} rotation={[0, Math.PI / 4, 0]}>
+          <coneGeometry args={[1.02, 0.66, 4]} />
+          <meshStandardMaterial
+            ref={roofMatRef}
+            color="#221844"
+            metalness={0.55}
+            roughness={0.4}
+            emissive={accentColor}
+            emissiveIntensity={0.14}
+          />
+        </mesh>
+
+        {/* Windows on the approach face, plus a door */}
+        {[
+          { x: -0.32, y: 0.68, w: 0.3, h: 0.26 },
+          { x: 0.32, y: 0.68, w: 0.3, h: 0.26 },
+          { x: 0, y: 0.26, w: 0.26, h: 0.5 },
+        ].map((win, i) => (
+          <mesh key={i} position={[win.x, win.y, 0.582]}>
+            <planeGeometry args={[win.w, win.h]} />
+            <meshBasicMaterial
+              ref={(m) => {
+                windowMatRefs.current[i] = m;
+              }}
+              color={accentColor}
+              transparent
+              opacity={0.6}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+      </group>
+
+      {/* Satellite devices, slowly orbiting the house */}
+      <group ref={nodeGroupRef}>
+        {sats.map((sat, i) => (
+          <group key={sat.key} rotation={[0, -sat.angle, 0]}>
+            {/* Link line from hub to device */}
+            <mesh position={[RADIUS / 2, 0.5, 0]}>
+              <boxGeometry args={[RADIUS - 0.7, 0.012, 0.012]} />
+              <meshBasicMaterial
+                ref={(m) => {
+                  linkMatRefs.current[i] = m;
+                }}
+                color={accentColor}
+                transparent
+                opacity={0.3}
+                toneMapped={false}
               />
             </mesh>
-            <mesh position={[x * 0.5, 0.42, z * 0.5]} rotation={[0, -angle, 0]}>
-              <boxGeometry args={[Math.max(0.05, r * 0.86), 0.015, 0.015]} />
-              <meshBasicMaterial ref={(m) => { beamMatRefs.current[i] = m; }} color={accentColor} transparent opacity={0.4} toneMapped={false} />
+
+            {/* Travelling data pulse */}
+            <mesh
+              ref={(m) => {
+                pulseRefs.current[i] = m;
+              }}
+              position={[0.35, 0.5, 0]}
+            >
+              <sphereGeometry args={[0.055, 8, 6]} />
+              <meshBasicMaterial
+                ref={(m) => {
+                  pulseMatRefs.current[i] = m;
+                }}
+                color="#ffffff"
+                transparent
+                opacity={0}
+                toneMapped={false}
+              />
+            </mesh>
+
+            {/* The device itself — a little smart speaker */}
+            <group position={[RADIUS, 0.28, 0]}>
+              <mesh>
+                <cylinderGeometry args={[0.2, 0.24, 0.55, 14]} />
+                <meshStandardMaterial color="#100d1c" metalness={0.6} roughness={0.4} />
+              </mesh>
+              <mesh position={[0, 0.29, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <circleGeometry args={[0.19, 14]} />
+                <meshBasicMaterial color={accentColor} transparent opacity={0.75} toneMapped={false} />
+              </mesh>
+            </group>
+          </group>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+/** NEW DROPS — a supply pod still hovering in its landing beam, with
+ *  touchdown rings washing out across the floor and chevrons running
+ *  down the beam. The whole read is "this one just arrived". */
+function NewDropsGeometry({ factorRef, accentColor, isTouch = false }) {
+  const podRef = useRef(null);
+  const podMatRef = useRef(null);
+  const beamMatRef = useRef(null);
+  const ringRefs = useRef([]);
+  const ringMatRefs = useRef([]);
+  const chevronRefs = useRef([]);
+  const chevronMatRefs = useRef([]);
+  const clock = useRef(0);
+
+  const RINGS = isTouch ? 2 : 3;
+  const CHEVRONS = 3;
+  const POD_Y = 2.45;
+
+  useFrame((_, delta) => {
+    const f = factorRef.current;
+    clock.current += delta;
+    const t = clock.current;
+
+    if (podRef.current) {
+      podRef.current.position.y = POD_Y + Math.sin(t * 1.1) * 0.13;
+      podRef.current.rotation.y += delta * 0.5;
+    }
+    if (podMatRef.current) podMatRef.current.emissiveIntensity = 0.34 * f;
+    if (beamMatRef.current) beamMatRef.current.opacity = Math.min(0.34, 0.26 * f);
+
+    // Touchdown rings: each starts small and bright at the pad and washes
+    // outward, so there is always one mid-flight.
+    ringRefs.current.forEach((r, i) => {
+      if (!r) return;
+      const phase = ((t * 0.5 + i / RINGS) % 1);
+      r.scale.setScalar(0.35 + phase * 1.9);
+      const m = ringMatRefs.current[i];
+      if (m) m.opacity = (1 - phase) * 0.65 * Math.min(1, f);
+    });
+
+    // Chevrons running down the beam — the arrow of "incoming".
+    chevronRefs.current.forEach((c, i) => {
+      if (!c) return;
+      const phase = ((t * 0.7 + i / CHEVRONS) % 1);
+      c.position.y = POD_Y - 0.45 - phase * 1.65;
+      // Each chevron is two bars, so its materials live at 2i and 2i+1 —
+      // fading only one of them would leave half an arrow behind.
+      const alpha = Math.sin(phase * Math.PI) * 0.8 * Math.min(1, f);
+      const a = chevronMatRefs.current[i * 2];
+      const b = chevronMatRefs.current[i * 2 + 1];
+      if (a) a.opacity = alpha;
+      if (b) b.opacity = alpha;
+    });
+  });
+
+  return (
+    <group>
+      {/* Landing pad */}
+      <mesh position={[0, 0.1, 0]}>
+        <cylinderGeometry args={[0.85, 0.95, 0.2, 20]} />
+        <meshStandardMaterial color="#120f1e" metalness={0.6} roughness={0.4} />
+      </mesh>
+
+      {/* Landing beam — wide at the floor, narrow at the pod */}
+      <mesh position={[0, 1.25, 0]}>
+        <cylinderGeometry args={[0.32, 0.92, 2.3, 22, 1, true]} />
+        <meshBasicMaterial
+          ref={beamMatRef}
+          color={accentColor}
+          transparent
+          opacity={0.26}
+          toneMapped={false}
+          side={DoubleSide}
+          blending={AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Touchdown rings */}
+      {Array.from({ length: RINGS }, (_, i) => (
+        <mesh
+          key={`ring-${i}`}
+          ref={(m) => {
+            ringRefs.current[i] = m;
+          }}
+          position={[0, 0.22, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <ringGeometry args={[0.8, 0.92, 40]} />
+          <meshBasicMaterial
+            ref={(m) => {
+              ringMatRefs.current[i] = m;
+            }}
+            color={accentColor}
+            transparent
+            opacity={0}
+            toneMapped={false}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+
+      {/* Chevrons descending the beam */}
+      {Array.from({ length: CHEVRONS }, (_, i) => (
+        <group
+          key={`chev-${i}`}
+          ref={(g) => {
+            chevronRefs.current[i] = g;
+          }}
+          position={[0, POD_Y - 0.45, 0]}
+        >
+          {[-1, 1].map((side, s) => (
+            <mesh key={side} position={[side * 0.16, 0, 0]} rotation={[0, 0, side * 0.7]}>
+              <boxGeometry args={[0.34, 0.05, 0.05]} />
+              <meshBasicMaterial
+                ref={(m) => {
+                  chevronMatRefs.current[i * 2 + s] = m;
+                }}
+                color={accentColor}
+                transparent
+                opacity={0}
+                toneMapped={false}
+              />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* The pod */}
+      <group ref={podRef} position={[0, POD_Y, 0]}>
+        <mesh>
+          <octahedronGeometry args={[0.62, 0]} />
+          <meshStandardMaterial
+            ref={podMatRef}
+            color="#1a1334"
+            metalness={0.7}
+            roughness={0.26}
+            emissive={accentColor}
+            emissiveIntensity={0.3}
+          />
+        </mesh>
+        {/* Banding around the pod's waist */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.44, 0.035, 8, 28]} />
+          <meshBasicMaterial color={accentColor} transparent opacity={0.85} toneMapped={false} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/** HANDHELDS — a phone standing on a dock with its UI scrolling, a tablet
+ *  orbiting alongside it. */
+function HandheldsGeometry({ factorRef, accentColor, isTouch = false }) {
+  const phoneRef = useRef(null);
+  const tabletRef = useRef(null);
+  const screenMatRef = useRef(null);
+  const tabletScreenMatRef = useRef(null);
+  const rowRefs = useRef([]);
+  const rowMatRefs = useRef([]);
+  const bodyMatRefs = useRef([]);
+  const clock = useRef(0);
+
+  const ROWS = isTouch ? 4 : 6;
+  const SCREEN_H = 1.5;
+
+  useFrame((_, delta) => {
+    const f = factorRef.current;
+    clock.current += delta;
+    const t = clock.current;
+
+    if (phoneRef.current) {
+      phoneRef.current.position.y = 1.95 + Math.sin(t * 0.85) * 0.07;
+      phoneRef.current.rotation.y = Math.sin(t * 0.4) * 0.22;
+    }
+    if (tabletRef.current) {
+      // Orbits the phone rather than sitting beside it — one moving object
+      // is what stops a shelf of slabs reading as furniture.
+      tabletRef.current.rotation.y = t * 0.35;
+    }
+    bodyMatRefs.current.forEach((m) => {
+      if (m) m.emissiveIntensity = 0.16 * f;
+    });
+    if (screenMatRef.current) screenMatRef.current.opacity = Math.min(0.75, 0.6 * f);
+    if (tabletScreenMatRef.current) tabletScreenMatRef.current.opacity = Math.min(0.6, 0.5 * f);
+
+    rowRefs.current.forEach((row, i) => {
+      if (!row) return;
+      const phase = (t * 0.22 + i / ROWS) % 1;
+      row.position.y = -SCREEN_H / 2 + phase * SCREEN_H;
+      const m = rowMatRefs.current[i];
+      if (m) {
+        const edge = Math.min(phase, 1 - phase) / 0.16;
+        m.opacity = Math.min(1, edge) * 0.9 * Math.min(1, f);
+      }
+    });
+  });
+
+  return (
+    <group>
+      {/* Dock */}
+      <mesh position={[0, 0.16, 0]}>
+        <cylinderGeometry args={[0.85, 0.98, 0.32, 22]} />
+        <meshStandardMaterial color="#1b1638" metalness={0.6} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 0.85, 0]}>
+        <cylinderGeometry args={[0.09, 0.13, 1.1, 12]} />
+        <meshStandardMaterial color="#2a2150" metalness={0.7} roughness={0.3} />
+      </mesh>
+
+      {/* Phone */}
+      <group ref={phoneRef} position={[0, 1.95, 0]}>
+        <mesh>
+          <boxGeometry args={[0.9, 1.75, 0.09]} />
+          <meshStandardMaterial
+            ref={(m) => {
+              bodyMatRefs.current[0] = m;
+            }}
+            color="#1d1740"
+            metalness={0.78}
+            roughness={0.22}
+            emissive={accentColor}
+            emissiveIntensity={0.15}
+          />
+        </mesh>
+        <mesh position={[0, 0, 0.05]}>
+          <planeGeometry args={[0.78, 1.56]} />
+          <meshBasicMaterial
+            ref={screenMatRef}
+            color={accentColor}
+            transparent
+            opacity={0.6}
+            toneMapped={false}
+          />
+        </mesh>
+        {/* Scrolling UI rows */}
+        {Array.from({ length: ROWS }, (_, i) => (
+          <mesh
+            key={i}
+            ref={(m) => {
+              rowRefs.current[i] = m;
+            }}
+            position={[0, 0, 0.056]}
+          >
+            <planeGeometry args={[0.54, 0.1]} />
+            <meshBasicMaterial
+              ref={(m) => {
+                rowMatRefs.current[i] = m;
+              }}
+              color="#ffffff"
+              transparent
+              opacity={0}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+        {/* Camera bump */}
+        <mesh position={[-0.28, 0.66, -0.07]}>
+          <cylinderGeometry args={[0.1, 0.1, 0.05, 12]} />
+          <meshStandardMaterial color="#0f0c22" metalness={0.9} roughness={0.15} />
+        </mesh>
+      </group>
+
+      {/* Orbiting tablet */}
+      <group ref={tabletRef} position={[0, 1.85, 0]}>
+        <group position={[1.5, 0, 0]} rotation={[0, -0.5, 0.12]}>
+          <mesh>
+            <boxGeometry args={[1.12, 0.78, 0.06]} />
+            <meshStandardMaterial
+              ref={(m) => {
+                bodyMatRefs.current[1] = m;
+              }}
+              color="#1d1740"
+              metalness={0.75}
+              roughness={0.25}
+              emissive={accentColor}
+              emissiveIntensity={0.14}
+            />
+          </mesh>
+          <mesh position={[0, 0, 0.035]}>
+            <planeGeometry args={[1.0, 0.66]} />
+            <meshBasicMaterial
+              ref={tabletScreenMatRef}
+              color={accentColor}
+              transparent
+              opacity={0.5}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+      </group>
+    </group>
+  );
+}
+
+/** VISION / XR — a headset on a stand, ringed by holographic panels that
+ *  swing around it as if you were wearing the thing. */
+function VisionGeometry({ factorRef, accentColor, isTouch = false }) {
+  const panelGroupRef = useRef(null);
+  const visorMatRef = useRef(null);
+  const shellMatRef = useRef(null);
+  const panelMatRefs = useRef([]);
+  const headsetRef = useRef(null);
+  const clock = useRef(0);
+
+  const PANELS = isTouch ? 3 : 5;
+
+  useFrame((_, delta) => {
+    const f = factorRef.current;
+    clock.current += delta;
+    const t = clock.current;
+
+    if (headsetRef.current) headsetRef.current.position.y = 2.7 + Math.sin(t * 0.9) * 0.06;
+    if (panelGroupRef.current) panelGroupRef.current.rotation.y = t * 0.28;
+    if (shellMatRef.current) shellMatRef.current.emissiveIntensity = 0.18 * f;
+    // The visor breathes — the one part of a headset that looks alive.
+    if (visorMatRef.current) {
+      visorMatRef.current.opacity = Math.min(1, (0.85 + Math.sin(t * 1.4) * 0.15) * f);
+    }
+    panelMatRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const wave = 0.5 + Math.sin(t * 1.1 + i * 1.2) * 0.5;
+      m.opacity = Math.min(0.85, (0.3 + wave * 0.5) * f);
+    });
+  });
+
+  return (
+    <group>
+      {/* Stand */}
+      <mesh position={[0, 0.15, 0]}>
+        <cylinderGeometry args={[0.8, 0.92, 0.3, 20]} />
+        <meshStandardMaterial color="#1b1638" metalness={0.6} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 1.25, 0]}>
+        <cylinderGeometry args={[0.1, 0.14, 2.0, 12]} />
+        <meshStandardMaterial color="#2a2150" metalness={0.7} roughness={0.3} />
+      </mesh>
+
+      {/* Headset. Raised clear of the courier's head — at chest height it sat
+          directly behind them from the approach mark and was simply hidden. */}
+      <group ref={headsetRef} position={[0, 2.7, 0]}>
+        <mesh>
+          <boxGeometry args={[1.3, 0.62, 0.6]} />
+          <meshStandardMaterial
+            ref={shellMatRef}
+            color="#2c2263"
+            metalness={0.7}
+            roughness={0.3}
+            emissive={accentColor}
+            emissiveIntensity={0.16}
+          />
+        </mesh>
+        {/* Visor */}
+        <mesh position={[0, 0.02, 0.31]}>
+          <planeGeometry args={[1.14, 0.42]} />
+          <meshBasicMaterial
+            ref={visorMatRef}
+            color={accentColor}
+            transparent
+            opacity={0.6}
+            toneMapped={false}
+          />
+        </mesh>
+        {/* Head strap */}
+        <mesh position={[0, 0.02, -0.15]} rotation={[0, 0, 0]}>
+          <torusGeometry args={[0.46, 0.06, 8, 22, Math.PI]} />
+          <meshStandardMaterial color="#241c48" metalness={0.5} roughness={0.45} />
+        </mesh>
+      </group>
+
+      {/* Holographic panels orbiting the headset */}
+      <group ref={panelGroupRef} position={[0, 2.7, 0]}>
+        {Array.from({ length: PANELS }, (_, i) => {
+          const angle = (i / PANELS) * Math.PI * 2;
+          const r = 1.7;
+          return (
+            <group
+              key={i}
+              position={[Math.sin(angle) * r, Math.sin(i * 1.7) * 0.35, Math.cos(angle) * r]}
+              rotation={[0, angle, 0]}
+            >
+              <mesh>
+                <planeGeometry args={[0.9, 0.62]} />
+                <meshBasicMaterial
+                  ref={(m) => {
+                    panelMatRefs.current[i] = m;
+                  }}
+                  color={accentColor}
+                  transparent
+                  opacity={0.3}
+                  toneMapped={false}
+                  side={DoubleSide}
+                  depthWrite={false}
+                />
+              </mesh>
+            </group>
+          );
+        })}
+      </group>
+    </group>
+  );
+}
+
+/** POWER CELL — a charging column whose cell fills, tops out, discharges to
+ *  a bank of coils, and starts again. */
+function PowerGeometry({ factorRef, accentColor, isTouch = false }) {
+  const fillRef = useRef(null);
+  const fillMatRef = useRef(null);
+  const shellMatRef = useRef(null);
+  const arcRefs = useRef([]);
+  const arcMatRefs = useRef([]);
+  const coilMatRefs = useRef([]);
+  const clock = useRef(0);
+
+  const COILS = isTouch ? 3 : 4;
+  const CELL_H = 2.0;
+
+  useFrame((_, delta) => {
+    const f = factorRef.current;
+    clock.current += delta;
+    const t = clock.current;
+
+    // Charge ramps over 4s, holds full, then dumps — a cycle you can read
+    // at a glance, unlike a bar that just oscillates.
+    const cycle = (t * 0.16) % 1;
+    let charge;
+    if (cycle < 0.65) charge = cycle / 0.65;
+    else if (cycle < 0.8) charge = 1;
+    else charge = 1 - (cycle - 0.8) / 0.2;
+
+    if (fillRef.current) {
+      fillRef.current.scale.y = Math.max(0.02, charge);
+      fillRef.current.position.y = 0.65 + (charge * CELL_H) / 2;
+    }
+    if (fillMatRef.current) fillMatRef.current.opacity = Math.min(1, 0.85 * f);
+    if (shellMatRef.current) shellMatRef.current.emissiveIntensity = (0.08 + charge * 0.3) * f;
+
+    // Coils light in sequence only while the cell is dumping.
+    const dumping = cycle >= 0.8;
+    coilMatRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const seq = dumping ? Math.max(0, 1 - Math.abs(((cycle - 0.8) / 0.2) * COILS - i)) : 0;
+      m.opacity = Math.min(1, (0.2 + seq * 0.8) * f);
+    });
+
+    arcRefs.current.forEach((arc, i) => {
+      if (!arc) return;
+      arc.rotation.y = t * (1.6 + i * 0.4) + i;
+      const m = arcMatRefs.current[i];
+      if (m) m.opacity = Math.min(1, (0.15 + charge * 0.55) * f);
+    });
+  });
+
+  return (
+    <group>
+      {/* Base */}
+      <mesh position={[0, 0.28, 0]}>
+        <cylinderGeometry args={[1.15, 1.3, 0.56, 22]} />
+        <meshStandardMaterial color="#1b1638" metalness={0.6} roughness={0.4} />
+      </mesh>
+
+      {/* Cell shell */}
+      <mesh position={[0, 1.65, 0]}>
+        <cylinderGeometry args={[0.62, 0.62, CELL_H, 20, 1, true]} />
+        <meshStandardMaterial
+          ref={shellMatRef}
+          color="#221a4a"
+          metalness={0.6}
+          roughness={0.3}
+          emissive={accentColor}
+          emissiveIntensity={0.12}
+          side={DoubleSide}
+        />
+      </mesh>
+      {/* Cell cap */}
+      <mesh position={[0, 2.76, 0]}>
+        <cylinderGeometry args={[0.7, 0.66, 0.22, 20]} />
+        <meshStandardMaterial color="#2e2560" metalness={0.75} roughness={0.25} />
+      </mesh>
+
+      {/* The charge itself — a column scaled from its base */}
+      <mesh ref={fillRef} position={[0, 0.65, 0]}>
+        <cylinderGeometry args={[0.5, 0.5, CELL_H, 18]} />
+        <meshBasicMaterial
+          ref={fillMatRef}
+          color={accentColor}
+          transparent
+          opacity={0.85}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Energy arcs spinning around the cell */}
+      {[0, 1].map((i) => (
+        <group
+          key={i}
+          ref={(g) => {
+            arcRefs.current[i] = g;
+          }}
+          position={[0, 1.65, 0]}
+          rotation={[i === 0 ? 0.4 : -0.35, 0, i === 0 ? 0.3 : -0.25]}
+        >
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.95 + i * 0.22, 0.022, 8, 40]} />
+            <meshBasicMaterial
+              ref={(m) => {
+                arcMatRefs.current[i] = m;
+              }}
+              color={accentColor}
+              transparent
+              opacity={0.4}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Discharge coils around the base */}
+      {Array.from({ length: COILS }, (_, i) => {
+        const angle = (i / COILS) * Math.PI * 2 + 0.5;
+        const r = 1.75;
+        return (
+          <group key={i} position={[Math.sin(angle) * r, 0.35, Math.cos(angle) * r]}>
+            <mesh>
+              <cylinderGeometry args={[0.22, 0.26, 0.7, 12]} />
+              <meshStandardMaterial color="#1d1740" metalness={0.6} roughness={0.4} />
+            </mesh>
+            <mesh position={[0, 0.38, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[0.2, 12]} />
+              <meshBasicMaterial
+                ref={(m) => {
+                  coilMatRefs.current[i] = m;
+                }}
+                color={accentColor}
+                transparent
+                opacity={0.3}
+                toneMapped={false}
+              />
             </mesh>
           </group>
         );
@@ -508,32 +1776,289 @@ function SmartHomeGeometry({ factorRef, accentColor }) {
   );
 }
 
-/** NEW DROPS — a tall, bright beacon marking what just arrived. */
-function NewDropsGeometry({ factorRef, accentColor }) {
-  const beaconMatRef = useRef(null);
-  const pulseMatRef = useRef(null);
-  const pulseRef = useRef(null);
+/** CREATOR STUDIO — a cinema camera on a tripod inside a ring light, with a
+ *  boom mic overhead and a recording tally that blinks. */
+function CreatorGeometry({ factorRef, accentColor, isTouch = false }) {
+  const ringRef = useRef(null);
+  const ringMatRef = useRef(null);
+  const bodyMatRef = useRef(null);
+  const lensRef = useRef(null);
+  const tallyMatRef = useRef(null);
+  const boomRef = useRef(null);
   const clock = useRef(0);
 
   useFrame((_, delta) => {
     const f = factorRef.current;
     clock.current += delta;
-    if (beaconMatRef.current) beaconMatRef.current.emissiveIntensity = 0.3 * f;
-    const pulse = 0.5 + Math.sin(clock.current * 1.6) * 0.15;
-    if (pulseMatRef.current) pulseMatRef.current.opacity = Math.min(1, pulse * f);
-    if (pulseRef.current) pulseRef.current.scale.setScalar(1 + Math.sin(clock.current * 1.6) * 0.04);
+    const t = clock.current;
+
+    if (ringRef.current) ringRef.current.rotation.z = t * 0.12;
+    if (ringMatRef.current) {
+      // A ring light is the brightest object in any studio — held near the
+      // top of its range rather than scaled down with the rest, because a
+      // dim ring light just reads as a dark hoop.
+      ringMatRef.current.opacity = Math.min(1, (0.85 + Math.sin(t * 0.9) * 0.12) * f);
+    }
+    if (bodyMatRef.current) bodyMatRef.current.emissiveIntensity = 0.14 * f;
+    // The lens racks focus — a slow in-and-out, the way a camera hunts.
+    if (lensRef.current) lensRef.current.position.z = 0.52 + Math.sin(t * 0.7) * 0.07;
+    if (boomRef.current) boomRef.current.rotation.z = -0.5 + Math.sin(t * 0.45) * 0.09;
+    if (tallyMatRef.current) {
+      // A hard on/off blink, not a fade — tally lights do not dim.
+      tallyMatRef.current.opacity = ((t * 1.2) % 1) < 0.5 ? Math.min(1, f) : 0.08;
+    }
   });
 
   return (
     <group>
-      <mesh position={[0, 1.9, 0]}>
-        <coneGeometry args={[0.55, 3.6, 6]} />
-        <meshStandardMaterial ref={beaconMatRef} color="#120f18" metalness={0.7} roughness={0.28} emissive={accentColor} emissiveIntensity={0.25} />
+      {/* Tripod */}
+      {[0, 1, 2].map((i) => {
+        const angle = (i / 3) * Math.PI * 2 + 0.3;
+        return (
+          <mesh
+            key={i}
+            position={[Math.sin(angle) * 0.42, 0.62, Math.cos(angle) * 0.42]}
+            rotation={[Math.cos(angle) * 0.3, 0, -Math.sin(angle) * 0.3]}
+          >
+            <cylinderGeometry args={[0.045, 0.06, 1.3, 8]} />
+            <meshStandardMaterial color="#2a2150" metalness={0.65} roughness={0.35} />
+          </mesh>
+        );
+      })}
+
+      {/* Camera body */}
+      <group position={[0, 1.6, 0]}>
+        <mesh>
+          <boxGeometry args={[0.95, 0.7, 0.95]} />
+          <meshStandardMaterial
+            ref={bodyMatRef}
+            color="#2b2159"
+            metalness={0.7}
+            roughness={0.3}
+            emissive={accentColor}
+            emissiveIntensity={0.12}
+          />
+        </mesh>
+        {/* Lens */}
+        <mesh ref={lensRef} position={[0, 0, 0.52]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.26, 0.3, 0.5, 18]} />
+          <meshStandardMaterial color="#15102e" metalness={0.85} roughness={0.15} />
+        </mesh>
+        <mesh position={[0, 0, 0.8]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.2, 18]} />
+          <meshBasicMaterial color={accentColor} transparent opacity={0.7} toneMapped={false} />
+        </mesh>
+        {/* Top handle */}
+        <mesh position={[0, 0.44, 0]}>
+          <boxGeometry args={[0.7, 0.09, 0.16]} />
+          <meshStandardMaterial color="#2e2560" metalness={0.6} roughness={0.4} />
+        </mesh>
+        {/* Record tally */}
+        <mesh position={[0.3, 0.22, 0.49]}>
+          <circleGeometry args={[0.055, 10]} />
+          <meshBasicMaterial ref={tallyMatRef} color="#ff3366" transparent opacity={1} toneMapped={false} />
+        </mesh>
+      </group>
+
+      {/* Ring light framing the camera */}
+      <group ref={ringRef} position={[0, 1.85, -0.5]}>
+        <mesh>
+          <torusGeometry args={[1.55, 0.075, 10, isTouch ? 28 : 44]} />
+          <meshStandardMaterial
+            color="#3a2d6e"
+            metalness={0.5}
+            roughness={0.4}
+            emissive="#efe6ff"
+            emissiveIntensity={0.55}
+          />
+        </mesh>
+        <mesh>
+          <torusGeometry args={[1.55, 0.045, 8, isTouch ? 28 : 44]} />
+          <meshBasicMaterial
+            ref={ringMatRef}
+            color="#fbf7ff"
+            transparent
+            opacity={0.9}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+      <pointLight position={[0, 1.85, 0.5]} color="#efe6ff" intensity={1.8} distance={9} decay={2} />
+
+      {/* Boom mic */}
+      <group ref={boomRef} position={[-1.5, 2.7, 0.3]} rotation={[0, 0, -0.5]}>
+        <mesh position={[0.9, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.035, 0.035, 1.8, 8]} />
+          <meshStandardMaterial color="#2a2150" metalness={0.65} roughness={0.35} />
+        </mesh>
+        <mesh position={[1.8, 0, 0]}>
+          <capsuleGeometry args={[0.11, 0.34, 4, 10]} />
+          <meshStandardMaterial color="#191238" metalness={0.6} roughness={0.4} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/** FLIGHT DECK — a quadcopter hovering over a landing pad, rotors spinning,
+ *  with pad lights running a landing sequence. */
+function DronesGeometry({ factorRef, accentColor, isTouch = false }) {
+  const droneRef = useRef(null);
+  const rotorRefs = useRef([]);
+  const bodyMatRef = useRef(null);
+  const beamMatRef = useRef(null);
+  const padMatRefs = useRef([]);
+  const clock = useRef(0);
+
+  const PAD_LIGHTS = isTouch ? 4 : 8;
+  const ARMS = [
+    [1, 1],
+    [1, -1],
+    [-1, -1],
+    [-1, 1],
+  ];
+
+  useFrame((_, delta) => {
+    const f = factorRef.current;
+    clock.current += delta;
+    const t = clock.current;
+
+    if (droneRef.current) {
+      // Hover drift on two axes at unrelated rates — a single sine reads
+      // like an elevator, two read like something holding station.
+      droneRef.current.position.y = 2.35 + Math.sin(t * 1.15) * 0.14;
+      droneRef.current.position.x = Math.sin(t * 0.53) * 0.18;
+      droneRef.current.rotation.z = Math.sin(t * 0.53) * -0.07;
+      droneRef.current.rotation.y = Math.sin(t * 0.31) * 0.35;
+    }
+    // Fast enough to blur into a disc, alternating direction per pair the
+    // way a real quad's rotors do.
+    rotorRefs.current.forEach((r, i) => {
+      if (r) r.rotation.y += delta * (i % 2 === 0 ? 34 : -34);
+    });
+
+    if (bodyMatRef.current) bodyMatRef.current.emissiveIntensity = 0.2 * f;
+    if (beamMatRef.current) beamMatRef.current.opacity = Math.min(0.22, 0.18 * f);
+
+    padMatRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const seq = (t * 0.9 + i / PAD_LIGHTS) % 1;
+      const on = seq < 0.3 ? 1 - seq / 0.3 : 0;
+      m.opacity = Math.min(1, (0.22 + on * 0.75) * f);
+    });
+  });
+
+  return (
+    <group>
+      {/* Landing pad */}
+      <mesh position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[1.85, 2.0, 0.24, 26]} />
+        <meshStandardMaterial color="#1b1638" metalness={0.55} roughness={0.45} />
       </mesh>
-      <mesh ref={pulseRef} position={[0, 2.7, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.7, 0.03, 12, 48]} />
-        <meshBasicMaterial ref={pulseMatRef} color={accentColor} transparent opacity={0.5} toneMapped={false} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.25, 0]}>
+        <ringGeometry args={[1.05, 1.2, 32]} />
+        <meshBasicMaterial color={accentColor} transparent opacity={0.5} toneMapped={false} />
       </mesh>
+      {/* Pad edge lights running a landing sequence */}
+      {Array.from({ length: PAD_LIGHTS }, (_, i) => {
+        const angle = (i / PAD_LIGHTS) * Math.PI * 2;
+        return (
+          <mesh
+            key={i}
+            position={[Math.sin(angle) * 1.62, 0.26, Math.cos(angle) * 1.62]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <circleGeometry args={[0.13, 10]} />
+            <meshBasicMaterial
+              ref={(m) => {
+                padMatRefs.current[i] = m;
+              }}
+              color={accentColor}
+              transparent
+              opacity={0.3}
+              toneMapped={false}
+            />
+          </mesh>
+        );
+      })}
+
+      {/* Downwash beam */}
+      <mesh position={[0, 1.3, 0]}>
+        <cylinderGeometry args={[0.5, 1.25, 2.0, 20, 1, true]} />
+        <meshBasicMaterial
+          ref={beamMatRef}
+          color={accentColor}
+          transparent
+          opacity={0.18}
+          toneMapped={false}
+          side={DoubleSide}
+          blending={AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* The drone */}
+      <group ref={droneRef} position={[0, 2.35, 0]}>
+        {/* Fuselage */}
+        <mesh>
+          <boxGeometry args={[0.62, 0.24, 0.9]} />
+          <meshStandardMaterial
+            ref={bodyMatRef}
+            color="#1e1745"
+            metalness={0.72}
+            roughness={0.28}
+            emissive={accentColor}
+            emissiveIntensity={0.18}
+          />
+        </mesh>
+        {/* Gimbal camera slung underneath */}
+        <mesh position={[0, -0.2, 0.3]}>
+          <sphereGeometry args={[0.15, 12, 10]} />
+          <meshStandardMaterial color="#15102e" metalness={0.85} roughness={0.18} />
+        </mesh>
+        <mesh position={[0, -0.2, 0.44]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.075, 10]} />
+          <meshBasicMaterial color={accentColor} transparent opacity={0.9} toneMapped={false} />
+        </mesh>
+
+        {/* Arms, motors and rotors */}
+        {ARMS.map(([sx, sz], i) => (
+          <group key={i} position={[sx * 0.62, 0, sz * 0.62]}>
+            <mesh position={[-sx * 0.3, 0, -sz * 0.3]} rotation={[0, Math.atan2(sx, sz), 0]}>
+              <boxGeometry args={[0.1, 0.07, 0.72]} />
+              <meshStandardMaterial color="#241c48" metalness={0.6} roughness={0.4} />
+            </mesh>
+            <mesh position={[0, 0.06, 0]}>
+              <cylinderGeometry args={[0.12, 0.14, 0.16, 10]} />
+              <meshStandardMaterial color="#2e2560" metalness={0.7} roughness={0.3} />
+            </mesh>
+            <group
+              ref={(g) => {
+                rotorRefs.current[i] = g;
+              }}
+              position={[0, 0.16, 0]}
+            >
+              {/* Two thin blades read as a spinning disc once they blur */}
+              {[0, Math.PI / 2].map((a) => (
+                <mesh key={a} rotation={[0, a, 0]}>
+                  <boxGeometry args={[0.9, 0.012, 0.09]} />
+                  <meshBasicMaterial
+                    color={accentColor}
+                    transparent
+                    opacity={0.4}
+                    toneMapped={false}
+                  />
+                </mesh>
+              ))}
+            </group>
+            {/* Nav light: green forward, red aft, as on the real thing */}
+            <mesh position={[0, -0.05, 0]}>
+              <sphereGeometry args={[0.045, 8, 6]} />
+              <meshBasicMaterial color={sz > 0 ? '#3ef2a0' : '#ff3366'} toneMapped={false} />
+            </mesh>
+          </group>
+        ))}
+      </group>
     </group>
   );
 }
@@ -547,6 +2072,11 @@ const GEOMETRY_BY_VARIANT = {
   wearables: WearablesGeometry,
   smarthome: SmartHomeGeometry,
   newdrops: NewDropsGeometry,
+  handhelds: HandheldsGeometry,
+  vision: VisionGeometry,
+  power: PowerGeometry,
+  creator: CreatorGeometry,
+  drones: DronesGeometry,
 };
 
 /**
@@ -572,6 +2102,17 @@ const Zone = ({ config, isTouch }) => {
   const accentColor = ACCENT_HEX[config.accent] ?? VIOLET;
   const labelHeight = LABEL_HEIGHT[config.variant] ?? 4;
   const GeometryComponent = GEOMETRY_BY_VARIANT[config.variant];
+  // Turn the exhibit to face the mark the player actually walks to.
+  // Several of the approach marks are angled away from +Z to dodge a
+  // neighbour's trigger radius (see zoneConfig's APPROACH table), so an
+  // exhibit with a front — the vault door, the house, the monitor — would
+  // otherwise be presented edge-on or from behind to everyone who walks up.
+  // The platform, pool and label all stay unrotated; they are radially
+  // symmetric, so only the object itself needs turning.
+  const faceAngle = Math.atan2(
+    config.approach[0] - config.position[0],
+    config.approach[1] - config.position[2]
+  );
   const glowTexture = getGlowTexture();
   const haloTexture = getHaloTexture();
   // CORE is the room's one landmark exhibit — its floor pool reads larger
@@ -644,7 +2185,11 @@ const Zone = ({ config, isTouch }) => {
     let targetFactor;
     if (snap.mode === 'entering') targetFactor = 0;
     else if (engaged) targetFactor = active ? 1.3 : 0.22;
-    else targetFactor = hovered ? 0.95 : 0.58;
+    // Idle sits higher than it used to. Everything emissive in every exhibit
+    // scales off this number, and once the sky and ambient were lifted, a
+    // district resting at 0.58 stopped out-glowing its own surroundings — the
+    // exhibits went from reading as lit displays to unlit props on a lit floor.
+    else targetFactor = hovered ? 1.05 : 0.75;
     factorRef.current = MathUtils.damp(factorRef.current, targetFactor, 4.5, delta);
 
     let targetScale;
@@ -857,7 +2402,9 @@ const Zone = ({ config, isTouch }) => {
           />
         </mesh>
 
-        <GeometryComponent factorRef={factorRef} accentColor={accentColor} isTouch={isTouch} />
+        <group rotation={[0, faceAngle, 0]}>
+          <GeometryComponent factorRef={factorRef} accentColor={accentColor} isTouch={isTouch} />
+        </group>
       </group>
 
       {/* No generic backdrop wall: each exhibit now stands in open space,

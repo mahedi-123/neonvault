@@ -11,7 +11,11 @@ import { PLAYER_SPAWN, WORLD_CENTER, WORLD_RADIUS, getZoneById, zones } from '..
  * subscribe/emit pair below instead.
  */
 
-export const PLAYER_SPEED = 4.6;
+// Raised along with the world's growth: at 4.6 a walk from the entrance to
+// the far rim took the better part of a minute, which made the far districts
+// feel like a chore rather than a destination. Holding a run key covers the
+// same ground in about half that.
+export const PLAYER_SPEED = 5.6;
 
 export const player = {
   position: new Vector3(PLAYER_SPAWN[0], 0, PLAYER_SPAWN[2]),
@@ -28,6 +32,13 @@ export const player = {
    * every exhibit the straight-line path happens to cross on the way.
    */
   intentZoneId: null,
+  /**
+   * True while the courier is turning on the spot to face the district they
+   * have arrived at. The camera watches this so it can swing round with
+   * them — otherwise arriving somewhere leaves you looking off in whatever
+   * direction you happened to walk in from.
+   */
+  autoFacing: false,
 };
 
 /**
@@ -67,6 +78,78 @@ export function markMoved() {
 }
 
 /**
+ * Analog steering: the live pull of a held pointer, in SCREEN space.
+ *
+ * `x`/`y` are a unit vector in the direction the pointer has been dragged
+ * from where it went down (y is screen-down, as DOM coordinates are), and
+ * `magnitude` is how far it was dragged as a fraction of the pad radius,
+ * clamped to 1. Player.jsx rotates that into world space against the camera's
+ * yaw, so pulling "up the screen" always means "away from the camera" however
+ * the rig happens to be turned.
+ *
+ * The magnitude is the whole reason this is not just four more booleans:
+ * a small pull is a walk, a long one is a run, and everything in between is
+ * a real speed — which is what makes a drag feel like steering rather than
+ * like pressing an arrow key with a mouse.
+ *
+ * `originX/Y` and `pointX/Y` are client pixels, kept here purely so the
+ * on-screen pad can draw itself where the finger actually is.
+ */
+export const steer = {
+  active: false,
+  x: 0,
+  y: 0,
+  /**
+   * The same pull already resolved into a world-space direction, against the
+   * camera as it was when the hand last moved. Kept here rather than derived
+   * per frame so that a held pointer walks a straight line while the camera
+   * swings round behind the courier — see useVaultPointer.
+   */
+  worldX: 0,
+  worldZ: -1,
+  magnitude: 0,
+  originX: 0,
+  originY: 0,
+  pointX: 0,
+  pointY: 0,
+};
+
+export function clearSteer() {
+  steer.active = false;
+  steer.x = 0;
+  steer.y = 0;
+  steer.magnitude = 0;
+}
+
+/**
+ * Notified only when the pad appears or disappears — never while it moves.
+ * The pad's position is read straight off `steer` in a rAF loop, because a
+ * React re-render per pointermove is exactly the cost this store exists to
+ * avoid.
+ */
+const steerListeners = new Set();
+
+export function subscribeSteer(listener) {
+  steerListeners.add(listener);
+  return () => steerListeners.delete(listener);
+}
+
+export function setSteerActive(active) {
+  if (steer.active === active) return;
+  steer.active = active;
+  if (!active) {
+    steer.magnitude = 0;
+    steer.x = 0;
+    steer.y = 0;
+  }
+  for (const listener of steerListeners) listener();
+}
+
+export function useSteerActive() {
+  return useSyncExternalStore(subscribeSteer, () => steer.active);
+}
+
+/**
  * Orbit yaw for the third-person camera, in radians. 0 parks the camera
  * directly behind the world's -Z axis (the entrance view). Dragging the
  * pointer across the canvas rotates it; walking never does.
@@ -78,7 +161,15 @@ export const cameraRig = { yaw: 0 };
  * and WalkGround (which must ignore the click that ends a drag — otherwise
  * every camera orbit would also fling the player across the floor).
  */
-export const pointerState = { dragged: false };
+export const pointerState = {
+  dragged: false,
+  /**
+   * performance.now() of the last drag. The camera stops auto-following the
+   * courier's heading for a moment afterwards, so a deliberate look-around
+   * isn't immediately swung back by the next step the player takes.
+   */
+  lastDragAt: -Infinity,
+};
 
 const listeners = new Set();
 
@@ -112,8 +203,8 @@ const COLLISION_PAD = 0.5;
  * courier strolls straight through the middle of the exhibit, which reads as
  * the world being a painted backdrop rather than a place.
  *
- * Every zone's approach mark sits outside its own collision radius (see
- * zoneConfig's APPROACH table), so this can never push a player off the spot
+ * Every district's approach mark sits a clear APPROACH_GAP outside its own
+ * platform (see zoneConfig), so this can never push a player off the spot
  * the enter prompt wants them to reach.
  */
 export function resolveZoneCollisions(x, z) {
@@ -171,9 +262,12 @@ export function resetPlayer() {
   player.moving = false;
   player.hasMoved = false;
   player.intentZoneId = null;
+  player.autoFacing = false;
   cameraRig.yaw = 0;
   pointerState.dragged = false;
+  pointerState.lastDragAt = -Infinity;
   clearKeys();
+  setSteerActive(false);
   emit();
 }
 

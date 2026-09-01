@@ -6,7 +6,9 @@ import VaultOverlayUI from './overlay/VaultOverlayUI';
 import VaultDomFallback from './fallback/VaultDomFallback';
 import { resetVault } from './state/vaultStore';
 import { resetPlayer } from './state/playerStore';
+import { resetControls } from './state/controlStore';
 import { useVaultKeyboard } from './hooks/useVaultKeyboard';
+import { useVaultPointer } from './hooks/useVaultPointer';
 import { scrollLock } from '../utils/helpers';
 
 /**
@@ -21,12 +23,19 @@ const VaultExperience = ({ isTouch }) => {
 
   // WASD / arrows to walk, E to enter an exhibit, Esc to leave one.
   useVaultKeyboard();
+  // Press-and-drag: steers the courier or orbits the camera, depending on
+  // which scheme the player picked on the way in.
+  useVaultPointer();
 
   useEffect(() => {
     resetVault();
     // The player is a module singleton too — without this, a second visit
     // would start wherever the last one left the courier standing.
     resetPlayer();
+    // Ask again on every visit. The previous answer is remembered and
+    // pre-marked, so returning is one click — but a scheme chosen weeks ago
+    // on a different device is not something to silently reinstate.
+    resetControls();
     scrollLock(true);
     return () => scrollLock(false);
   }, []);
@@ -58,7 +67,7 @@ const VaultExperience = ({ isTouch }) => {
   return createPortal(
     <div className="fixed inset-0 z-[45] bg-bg">
       <VaultCanvas isTouch={isTouch} onContextLost={handleContextLost} />
-      <VaultOverlayUI />
+      <VaultOverlayUI isTouch={isTouch} />
     </div>,
     document.body
   );

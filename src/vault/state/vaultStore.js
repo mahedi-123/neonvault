@@ -19,9 +19,9 @@ import { useSyncExternalStore } from 'react';
 
 export const INTRO_STEPS = [
   'Welcome to THE NEON VAULT — a private showroom for the gear worth owning.',
-  'Eight zones sit on this floor. Everything inside them is real stock, priced and ready to take home.',
-  'Move with WASD, or tap anywhere on the floor to walk there. Drag to look around.',
-  'Walk up to a zone and it will ask whether you want to go in. That is the whole tour.',
+  'Thirteen districts sit on this floor, ringed by the transit line. Some are stocked and priced; a few are still being fitted out.',
+  'Past the shield at the rim the city runs on without you — this floor is one plaza in it, not the whole of it.',
+  'Pick how you want to move in a moment, then walk up to a district and it will ask whether you want to go in. That is the whole tour.',
 ];
 
 const initialState = {

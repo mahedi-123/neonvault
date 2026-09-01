@@ -11,10 +11,8 @@ import {
 import { cameraRig, player, pointerState } from '../state/playerStore';
 import { arrive, beginIntro, getSnapshot, settleOverview } from '../state/vaultStore';
 
-/** Pixels of pointer travel before a press counts as a camera drag rather
- *  than a tap. Below this, WalkGround gets the click and the player walks. */
-const DRAG_THRESHOLD = 7;
-const YAW_PER_PIXEL = 0.006;
+/** How long after a drag the rig leaves the player's chosen bearing alone. */
+const DRAG_GRACE_MS = 2500;
 
 /** How long the establishing shot holds before the guide takes over. */
 const ENTRY_HOLD_MS = 1900;
@@ -27,8 +25,10 @@ const lookAt = new Vector3();
  * Owns the camera. Two behaviours, chosen by store mode:
  *
  *  • follow  — third-person rig riding behind the courier at a fixed
- *              distance/height, yaw controlled by pointer drag. Used for
- *              'entering', 'intro', 'overview' and 'returning'.
+ *              distance/height, yaw auto-following their heading and
+ *              overridable by drag (see useVaultPointer, which owns every
+ *              pointer listener in the vault). Used for 'entering', 'intro',
+ *              'overview' and 'returning'.
  *  • focus   — parks on a zone's authored focusPose. Used for 'diving'
  *              and 'zone'.
  *
@@ -38,12 +38,13 @@ const lookAt = new Vector3();
  * and 'returning' → 'overview' (walking resumes).
  */
 const CameraRig = ({ isTouch }) => {
-  const { camera, gl } = useThree();
+  const { camera } = useThree();
   const follow = isTouch ? MOBILE_FOLLOW : FOLLOW;
   const entryPose = isTouch ? MOBILE_ENTRY_POSE : ENTRY_POSE;
   const lookRef = useRef(new Vector3(...entryPose.target));
   const settledRef = useRef(false);
   const lastModeRef = useRef('entering');
+  const followingRef = useRef(false);
 
   // Establishing shot: hold the wide pose, then hand over to the guide. The
   // glide itself is just the normal damping toward the follow pose, which
@@ -56,56 +57,6 @@ const CameraRig = ({ isTouch }) => {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Pointer drag orbits the rig's yaw. Registered on the canvas element
-  // rather than through R3F events so it keeps tracking once the pointer
-  // leaves whatever mesh the press started on.
-  useEffect(() => {
-    const el = gl.domElement;
-    let down = false;
-    let lastX = 0;
-    let startX = 0;
-    let startY = 0;
-
-    const onDown = (e) => {
-      down = true;
-      lastX = e.clientX;
-      startX = e.clientX;
-      startY = e.clientY;
-      pointerState.dragged = false;
-    };
-
-    const onMove = (e) => {
-      if (!down) return;
-      if (!pointerState.dragged) {
-        if (Math.hypot(e.clientX - startX, e.clientY - startY) < DRAG_THRESHOLD) return;
-        pointerState.dragged = true;
-      }
-      const dx = e.clientX - lastX;
-      lastX = e.clientX;
-      const mode = getSnapshot().mode;
-      if (mode === 'overview' || mode === 'intro') {
-        cameraRig.yaw -= dx * YAW_PER_PIXEL;
-      }
-    };
-
-    const onUp = () => {
-      down = false;
-      // Cleared on the NEXT press, not here: WalkGround's click handler runs
-      // after pointerup and needs to still see that this was a drag.
-    };
-
-    el.addEventListener('pointerdown', onDown);
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    return () => {
-      el.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-    };
-  }, [gl]);
 
   useFrame((_, delta) => {
     const snap = getSnapshot();
@@ -120,6 +71,46 @@ const CameraRig = ({ isTouch }) => {
       settledRef.current = false;
     }
 
+    /* ---------- auto-follow the courier's heading ----------
+       The rig's yaw used to be a fixed compass bearing, only ever changed by
+       dragging. That was liveable on a small floor where everything was
+       north of you; across a 31-unit disc it means walking west while the
+       camera keeps staring north, and the district you are walking to sits
+       off the side of the screen the whole way.
+
+       So the yaw eases to sit behind whichever way the courier faces —
+       including while they turn on the spot to face an exhibit. Dragging
+       still wins: the follow is suspended for a beat afterwards, or a
+       deliberate look-around would be yanked back by the next step. */
+    if (snap.mode !== 'overview') {
+      followingRef.current = false;
+    } else {
+      // Latched rather than sampled per frame. The courier turns faster than
+      // the rig does, so gating on "is the player turning right now" left the
+      // camera stranded mid-swing the instant they settled — which is exactly
+      // the arrival case this exists to fix. Once armed, the follow runs to
+      // completion and disarms itself when it gets there.
+      if (player.moving || player.autoFacing) followingRef.current = true;
+
+      const sinceDrag = performance.now() - pointerState.lastDragAt;
+      if (followingRef.current && sinceDrag > DRAG_GRACE_MS) {
+        // The camera sits BEHIND the courier, so its bearing is their
+        // heading turned half a circle.
+        const desired = player.heading + Math.PI;
+        let diff = (desired - cameraRig.yaw) % (Math.PI * 2);
+        if (diff > Math.PI) diff -= Math.PI * 2;
+        if (diff < -Math.PI) diff += Math.PI * 2;
+
+        if (Math.abs(diff) < 0.012 && !player.moving && !player.autoFacing) {
+          followingRef.current = false;
+        } else {
+          // Deliberately unhurried — a rig that snaps behind every small
+          // course correction is nauseating to walk with.
+          cameraRig.yaw += diff * Math.min(1, dt * 2.2);
+        }
+      }
+    }
+
     const focusing = snap.mode === 'diving' || snap.mode === 'zone';
     const zone = focusing && snap.activeZoneId ? getZoneById(snap.activeZoneId) : null;
 
@@ -130,15 +121,23 @@ const CameraRig = ({ isTouch }) => {
       // Follow pose: behind the courier along the rig's yaw, raised, aimed at
       // roughly chest height so they sit low in frame with the world above.
       const yaw = cameraRig.yaw;
+      // Right-hand perpendicular of the rig's forward direction. Eye and look
+      // target both shift along it by the same amount, which slides the
+      // courier off-centre while leaving what is ahead of them nearly
+      // centred — perspective means the further object moves less on screen.
+      const rightX = Math.cos(yaw);
+      const rightZ = -Math.sin(yaw);
+      const shoulder = follow.shoulder ?? 0;
+
       desiredEye.set(
-        player.position.x + Math.sin(yaw) * follow.distance,
+        player.position.x + Math.sin(yaw) * follow.distance + rightX * shoulder,
         follow.height,
-        player.position.z + Math.cos(yaw) * follow.distance
+        player.position.z + Math.cos(yaw) * follow.distance + rightZ * shoulder
       );
       desiredLook.set(
-        player.position.x,
+        player.position.x + rightX * shoulder,
         follow.lookHeight,
-        player.position.z
+        player.position.z + rightZ * shoulder
       );
     }
 

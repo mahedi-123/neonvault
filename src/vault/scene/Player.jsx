@@ -1,8 +1,8 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { MathUtils, Vector3 } from 'three';
+import { DoubleSide, MathUtils, Vector3 } from 'three';
 import { zones } from '../zoneConfig';
-import { PLAYER_SPEED, cameraRig, keys, markMoved, player, resolvePosition } from '../state/playerStore';
+import { PLAYER_SPEED, cameraRig, keys, markMoved, player, resolvePosition, steer } from '../state/playerStore';
 import { getSnapshot, setNearZone } from '../state/vaultStore';
 
 const VIOLET = '#8b5cf6';
@@ -10,8 +10,20 @@ const CYAN = '#22d3ee';
 
 /** Below this distance from the walk target the courier is considered arrived. */
 const ARRIVE_EPSILON = 0.12;
-/** Multiplier while a run key is held. */
-const RUN_MULTIPLIER = 1.7;
+/** Multiplier while a run key is held, and the ceiling for an analog pull. */
+const RUN_MULTIPLIER = 2.0;
+/**
+ * Analog steering speed, as a multiple of PLAYER_SPEED.
+ *
+ * A pointer held a few pixels from where it went down is somebody nudging
+ * themselves into position, and should amble; one dragged the full pad radius
+ * is somebody crossing the floor, and should run. Below the dead zone nothing
+ * moves at all, or the courier would creep whenever a hand rested still.
+ */
+const STEER_DEADZONE = 0.14;
+const STEER_MIN_PACE = 0.34;
+/** Seconds a dropped footfall ring takes to expand and fade out. */
+const FOOTPRINT_LIFE = 1.1;
 
 const scratchDir = new Vector3();
 
@@ -27,11 +39,14 @@ function shortestAngle(from, to) {
 }
 
 /**
- * Picks the zone the player is standing in. Zones overlap — CORE's radius
- * reaches into NEW DROPS', COMPUTING LAB's into GAMING's — so "nearest" is
- * measured as a fraction of each zone's own trigger radius rather than in
- * raw units. That makes the zone whose territory you are deepest inside win,
- * which is what a player reads as "the one I'm standing at".
+ * Picks the district the player is standing in.
+ *
+ * "Nearest" is measured as a fraction of each district's own trigger radius
+ * rather than in raw units, so the one whose territory you are deepest
+ * inside wins — which is what a player reads as "the one I'm standing at".
+ * On the two-ring layout no two radii overlap (scripts/check-zones.mjs
+ * asserts it), so today this only ever finds one candidate; the normalised
+ * comparison is what keeps it correct if districts are ever packed closer.
  */
 function findZoneUnderPlayer(x, z) {
   let best = null;
@@ -66,8 +81,22 @@ const Player = ({ isTouch = false }) => {
   const armLeftRef = useRef(null);
   const armRightRef = useRef(null);
   const ringMatRef = useRef(null);
+  const headRef = useRef(null);
+  const visorMatRef = useRef(null);
+  const thrusterMatRefs = useRef([]);
+  const footRefs = useRef([]);
+  const footMatRefs = useRef([]);
   const phase = useRef(0);
   const strideRef = useRef(0);
+  const leanRef = useRef(0);
+  const paceRef = useRef(1);
+  const idleClock = useRef(Math.random() * 20);
+  /** Sign of the leg swing last frame — a zero crossing is a foot landing. */
+  const lastSwingSign = useRef(1);
+  /** Round-robin index into the footprint pool. */
+  const footCursor = useRef(0);
+  /** Age of each pooled footprint, in seconds. Infinity = free. */
+  const footAge = useRef([Infinity, Infinity, Infinity, Infinity]);
 
   // Material props hoisted so the limb pairs stay identical by construction —
   // a left leg that drifts a shade off the right one is the kind of thing you
@@ -138,6 +167,35 @@ const Player = ({ isTouch = false }) => {
       // hides and click-walk has nothing stale to resume toward.
       player.target.copy(player.position);
       player.intentZoneId = null;
+    } else if (canWalk && steer.active && steer.magnitude > STEER_DEADZONE) {
+      /* ---------- analog steering (held pointer / finger) ----------
+         The direction was already resolved against the camera when the hand
+         last moved (useVaultPointer), so all that is left here is the speed —
+         which, unlike the keyboard's on/off, is a real range taken from how
+         far the pointer has been pulled. */
+      scratchDir.set(steer.worldX, 0, steer.worldZ);
+
+      const length = scratchDir.length();
+      if (length > 0.0001) {
+        scratchDir.divideScalar(length);
+        const pull = (steer.magnitude - STEER_DEADZONE) / (1 - STEER_DEADZONE);
+        stridePace = STEER_MIN_PACE + pull * (RUN_MULTIPLIER - STEER_MIN_PACE);
+        player.position.addScaledVector(scratchDir, PLAYER_SPEED * stridePace * dt);
+
+        const [cx, cz] = resolvePosition(player.position.x, player.position.z);
+        player.position.x = cx;
+        player.position.z = cz;
+
+        // Turn rate scales with pace: a slow steer should read as picking
+        // your way around, a fast one as leaning into the turn.
+        const desired = Math.atan2(scratchDir.x, scratchDir.z);
+        player.heading += shortestAngle(player.heading, desired) * Math.min(1, dt * (7 + stridePace * 3));
+        moving = true;
+        markMoved();
+      }
+
+      player.target.copy(player.position);
+      player.intentZoneId = null;
     } else if (canWalk) {
       scratchDir.copy(player.target).sub(player.position);
       scratchDir.y = 0;
@@ -163,6 +221,28 @@ const Player = ({ isTouch = false }) => {
     }
     player.moving = moving;
 
+    /* ---------- face the exhibit on arrival ----------
+       Approach marks sit on the side of a district facing the middle of the
+       world, so you reach one walking in whatever direction the trip
+       happened to end in — frequently sideways to the thing you came to
+       see. Standing still inside a district therefore turns the courier to
+       look at it, and the camera swings round with them (see CameraRig). */
+    player.autoFacing = false;
+    if (canWalk && !moving && snap.nearZoneId) {
+      const zone = zones.find((z) => z.id === snap.nearZoneId);
+      if (zone) {
+        const dx = zone.position[0] - player.position.x;
+        const dz = zone.position[2] - player.position.z;
+        if (Math.hypot(dx, dz) > 0.2) {
+          const diff = shortestAngle(player.heading, Math.atan2(dx, dz));
+          if (Math.abs(diff) > 0.02) {
+            player.heading += diff * Math.min(1, dt * 5);
+            player.autoFacing = true;
+          }
+        }
+      }
+    }
+
     group.position.copy(player.position);
     group.rotation.y = player.heading;
 
@@ -174,22 +254,106 @@ const Player = ({ isTouch = false }) => {
     // same leg cadence reads as sliding.
     if (moving) phase.current += dt * 8.5 * stridePace;
 
-    const swing = Math.sin(phase.current) * 0.62 * strideRef.current;
+    // Pace is damped rather than read raw: letting go of the run key used to
+    // drop the lean and the stride length in a single frame, which read as a
+    // stumble.
+    paceRef.current = MathUtils.damp(paceRef.current, moving ? stridePace : 1, 6, dt);
+    const pace = paceRef.current;
+
+    const swingAmount = 0.62 * (0.85 + (pace - 1) * 0.5);
+    const swing = Math.sin(phase.current) * swingAmount * strideRef.current;
     if (legLeftRef.current) legLeftRef.current.rotation.x = swing;
     if (legRightRef.current) legRightRef.current.rotation.x = -swing;
-    if (armLeftRef.current) armLeftRef.current.rotation.x = -swing * 0.75;
-    if (armRightRef.current) armRightRef.current.rotation.x = swing * 0.75;
+    if (armLeftRef.current) armLeftRef.current.rotation.x = -swing * 0.78;
+    if (armRightRef.current) armRightRef.current.rotation.x = swing * 0.78;
+
+    idleClock.current += dt;
+    const idle = 1 - strideRef.current;
 
     if (bodyRef.current) {
       // A two-beat bob (legs are a one-beat cycle) plus a slow idle breath.
       const bob = Math.abs(Math.sin(phase.current)) * 0.075 * strideRef.current;
-      const breathe = Math.sin(phase.current * 0.35 + 1.2) * 0.02 * (1 - strideRef.current);
+      const breathe = Math.sin(idleClock.current * 1.1) * 0.022 * idle;
       bodyRef.current.position.y = 0.92 + bob + breathe;
-      bodyRef.current.rotation.z = Math.sin(phase.current) * 0.035 * strideRef.current;
+      bodyRef.current.rotation.z =
+        Math.sin(phase.current) * 0.035 * strideRef.current +
+        // Idle weight shift: the hips settle onto one leg, then the other, on
+        // a much slower cycle than the walk. Standing perfectly still is the
+        // single thing that most makes a figure read as a prop.
+        Math.sin(idleClock.current * 0.42) * 0.045 * idle;
+
+      // Forward lean scaled by pace — a runner leads with the chest.
+      const targetLean = strideRef.current * (0.06 + (pace - 1) * 0.16);
+      leanRef.current = MathUtils.damp(leanRef.current, targetLean, 5, dt);
+      bodyRef.current.rotation.x = leanRef.current;
     }
+
+    if (headRef.current) {
+      // Walking: the head counter-rotates slightly against the stride, which
+      // is what keeps the gaze steady instead of bobbing with the shoulders.
+      // Idle: a slow look around the room on an unhurried, off-beat cycle.
+      const scan = Math.sin(idleClock.current * 0.33) * 0.5 + Math.sin(idleClock.current * 0.17 + 2) * 0.3;
+      headRef.current.rotation.y = scan * 0.55 * idle - swing * 0.12;
+      headRef.current.rotation.x = -leanRef.current * 0.7 + Math.sin(idleClock.current * 0.29) * 0.06 * idle;
+    }
+
+    if (visorMatRef.current) {
+      // Slow breathing glow with an occasional quick double-blink, so the
+      // visor reads as something switched on and paying attention.
+      const base = 0.72 + Math.sin(idleClock.current * 1.6) * 0.12;
+      const cycle = idleClock.current % 6;
+      const blink = cycle < 0.09 || (cycle > 0.2 && cycle < 0.29) ? 0.25 : 1;
+      visorMatRef.current.opacity = base * blink;
+    }
+
+    // Heel thrusters flare with pace — idle they are barely lit.
+    thrusterMatRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const legSwing = i === 0 ? swing : -swing;
+      // Brightest as that leg drives backward, i.e. mid-push-off.
+      const push = Math.max(0, -legSwing / swingAmount);
+      m.opacity = 0.12 + strideRef.current * (0.2 + push * 0.55) * pace;
+    });
 
     if (ringMatRef.current) {
       ringMatRef.current.opacity = 0.22 + strideRef.current * 0.28;
+    }
+
+    /* ---------- footfall pulses ----------
+       A ring dropped where each foot lands, left behind in WORLD space while
+       the courier walks on. It is the cheapest possible way to make the floor
+       feel touched rather than hovered over, and it doubles as a trail
+       showing where you have just been. */
+    const swingSign = Math.sin(phase.current) >= 0 ? 1 : -1;
+    if (moving && swingSign !== lastSwingSign.current) {
+      const i = footCursor.current;
+      const ring = footRefs.current[i];
+      if (ring) {
+        // Offset to the foot that just planted, in the courier's own frame.
+        const side = swingSign > 0 ? 0.19 : -0.19;
+        const cos = Math.cos(player.heading);
+        const sin = Math.sin(player.heading);
+        ring.position.set(
+          player.position.x + cos * side,
+          0.04,
+          player.position.z - sin * side
+        );
+        footAge.current[i] = 0;
+      }
+      footCursor.current = (i + 1) % footRefs.current.length;
+    }
+    lastSwingSign.current = swingSign;
+
+    for (let i = 0; i < footAge.current.length; i += 1) {
+      const age = footAge.current[i];
+      if (age === Infinity) continue;
+      const next = age + dt;
+      footAge.current[i] = next > FOOTPRINT_LIFE ? Infinity : next;
+      const ring = footRefs.current[i];
+      const mat = footMatRefs.current[i];
+      const t01 = Math.min(1, next / FOOTPRINT_LIFE);
+      if (ring) ring.scale.setScalar(0.35 + t01 * 1.15);
+      if (mat) mat.opacity = (1 - t01) * 0.5;
     }
 
     /* ---------- proximity: offer the exhibit, don't take it ----------
@@ -215,9 +379,35 @@ const Player = ({ isTouch = false }) => {
   });
 
   return (
-    // Slightly over life-size. At the follow camera's distance a strictly
-    // proportioned figure reads as a detail of the floor rather than as the
-    // thing you are steering.
+    <>
+      {/* Footfall pulses. Deliberately OUTSIDE the courier's group: a ring is
+          dropped at a world position and stays there while they walk on, so
+          it marks the floor rather than following the feet. Four is enough —
+          at walking cadence the oldest has faded before it is reused. */}
+      <group>
+        {[0, 1, 2, 3].map((i) => (
+          <mesh
+            key={i}
+            ref={(m) => { footRefs.current[i] = m; }}
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, -100, 0]}
+          >
+            <ringGeometry args={[0.16, 0.24, 20]} />
+            <meshBasicMaterial
+              ref={(m) => { footMatRefs.current[i] = m; }}
+              color={CYAN}
+              transparent
+              opacity={0}
+              toneMapped={false}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+      </group>
+
+    {/* Slightly over life-size. At the follow camera's distance a strictly
+        proportioned figure reads as a detail of the floor rather than as the
+        thing you are steering. */}
     <group ref={groupRef} scale={1.12}>
       {/* Contact shadow + the courier's own footprint glow. No shadow maps in
           this scene, so without these the figure reads as floating. */}
@@ -247,6 +437,18 @@ const Player = ({ isTouch = false }) => {
           <boxGeometry args={[0.24, 0.12, 0.34]} />
           <meshStandardMaterial color="#0d0b13" metalness={0.3} roughness={0.6} />
         </mesh>
+        {/* Heel jet — flares on push-off and burns brighter at a run. */}
+        <mesh position={[0, -0.72, -0.12]}>
+          <planeGeometry args={[0.16, 0.1]} />
+          <meshBasicMaterial
+            ref={(m) => { thrusterMatRefs.current[0] = m; }}
+            color={CYAN}
+            transparent
+            opacity={0.12}
+            toneMapped={false}
+            side={DoubleSide}
+          />
+        </mesh>
       </group>
       <group ref={legRightRef} position={[0.17, 0.78, 0]}>
         <mesh position={[0, -0.39, 0]}>
@@ -256,6 +458,17 @@ const Player = ({ isTouch = false }) => {
         <mesh position={[0, -0.72, 0.06]}>
           <boxGeometry args={[0.24, 0.12, 0.34]} />
           <meshStandardMaterial color="#0d0b13" metalness={0.3} roughness={0.6} />
+        </mesh>
+        <mesh position={[0, -0.72, -0.12]}>
+          <planeGeometry args={[0.16, 0.1]} />
+          <meshBasicMaterial
+            ref={(m) => { thrusterMatRefs.current[1] = m; }}
+            color={CYAN}
+            transparent
+            opacity={0.12}
+            toneMapped={false}
+            side={DoubleSide}
+          />
         </mesh>
       </group>
 
@@ -296,37 +509,46 @@ const Player = ({ isTouch = false }) => {
           </mesh>
         </group>
 
-        {/* Head + visor */}
-        <mesh position={[0, 0.62, 0]}>
-          <boxGeometry args={[0.4, 0.38, 0.38]} />
-          <meshStandardMaterial
-            color="#2a2140"
-            metalness={0.5}
-            roughness={0.4}
-            emissive={VIOLET}
-            emissiveIntensity={0.18}
-          />
-        </mesh>
-        {/* Visor wraps the front corners, so the head still reads as a head
-            from the three-quarter angles the follow camera actually uses —
-            a flat front-facing strip disappeared the moment they turned. */}
-        <mesh position={[0, 0.63, 0.201]}>
-          <boxGeometry args={[0.33, 0.14, 0.02]} />
-          <meshBasicMaterial color={CYAN} toneMapped={false} />
-        </mesh>
-        <mesh position={[0.201, 0.63, 0]}>
-          <boxGeometry args={[0.02, 0.14, 0.2]} />
-          <meshBasicMaterial color={CYAN} transparent opacity={0.75} toneMapped={false} />
-        </mesh>
-        <mesh position={[-0.201, 0.63, 0]}>
-          <boxGeometry args={[0.02, 0.14, 0.2]} />
-          <meshBasicMaterial color={CYAN} transparent opacity={0.75} toneMapped={false} />
-        </mesh>
-        {/* Crest — a sliver of violet so the silhouette is not a plain block */}
-        <mesh position={[0, 0.83, -0.02]}>
-          <boxGeometry args={[0.1, 0.08, 0.3]} />
-          <meshBasicMaterial color={VIOLET} toneMapped={false} />
-        </mesh>
+        {/* Head + visor, on their own pivot so the courier can look around
+            while idle and hold their gaze steady while walking. */}
+        <group ref={headRef} position={[0, 0.62, 0]}>
+          <mesh>
+            <boxGeometry args={[0.4, 0.38, 0.38]} />
+            <meshStandardMaterial
+              color="#2a2140"
+              metalness={0.5}
+              roughness={0.4}
+              emissive={VIOLET}
+              emissiveIntensity={0.18}
+            />
+          </mesh>
+          {/* Visor wraps the front corners, so the head still reads as a head
+              from the three-quarter angles the follow camera actually uses —
+              a flat front-facing strip disappeared the moment they turned. */}
+          <mesh position={[0, 0.01, 0.201]}>
+            <boxGeometry args={[0.33, 0.14, 0.02]} />
+            <meshBasicMaterial
+              ref={visorMatRef}
+              color={CYAN}
+              transparent
+              opacity={0.85}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh position={[0.201, 0.01, 0]}>
+            <boxGeometry args={[0.02, 0.14, 0.2]} />
+            <meshBasicMaterial color={CYAN} transparent opacity={0.7} toneMapped={false} />
+          </mesh>
+          <mesh position={[-0.201, 0.01, 0]}>
+            <boxGeometry args={[0.02, 0.14, 0.2]} />
+            <meshBasicMaterial color={CYAN} transparent opacity={0.7} toneMapped={false} />
+          </mesh>
+          {/* Crest — a sliver of violet so the silhouette is not a plain block */}
+          <mesh position={[0, 0.21, -0.02]}>
+            <boxGeometry args={[0.1, 0.08, 0.3]} />
+            <meshBasicMaterial color={VIOLET} toneMapped={false} />
+          </mesh>
+        </group>
       </group>
 
       {/* Rim light riding behind the courier, so their silhouette separates
@@ -336,6 +558,7 @@ const Player = ({ isTouch = false }) => {
         <pointLight position={[0, 1.9, -1.1]} color={VIOLET} intensity={1.1} distance={5} decay={2} />
       )}
     </group>
+    </>
   );
 };
 
