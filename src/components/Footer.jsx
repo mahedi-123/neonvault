@@ -114,7 +114,7 @@ const Footer = () => {
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text hover:border-border-hover transition-all"
+                className="tap-safe p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text hover:border-border-hover transition-all"
                 aria-label={social.label}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

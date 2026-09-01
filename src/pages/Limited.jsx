@@ -3,15 +3,15 @@ import { motion } from 'motion/react';
 import { Zap, Shield, Clock, Crown, Sparkles, AlertCircle } from 'lucide-react';
 import { getLimitedProducts } from '../data/products';
 import ProductGrid from '../components/ProductGrid';
+import HoloGrid from '../components/HoloGrid';
 import Badge from '../components/Badge';
 
 const Limited = () => {
   const limitedProducts = getLimitedProducts();
 
   return (
-    <div className="min-h-screen pt-20 lg:pt-24 pb-20">
-      <div className="absolute inset-0 grid-pattern opacity-10" />
-      <div className="absolute inset-0 noise-overlay" />
+    <div className="relative min-h-screen overflow-hidden pt-20 lg:pt-24 pb-20">
+      <HoloGrid tone="violet" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.section className="mb-16" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>

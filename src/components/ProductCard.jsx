@@ -132,8 +132,9 @@ const ProductCard = ({ product, variant = 'default', priority = false }) => {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleWishlist(e); }}
+                style={{ '--tap-w': '38px' }}
                 className={cn(
-                  'p-2 rounded-full bg-bg/80 backdrop-blur-sm border border-border/50',
+                  'tap-safe p-2 rounded-full bg-bg/80 backdrop-blur-sm border border-border/50',
                   'text-text-muted hover:text-text hover:border-border-hover',
                   'transition-all duration-200',
                   inWishlist && 'text-accent border-accent/50'
@@ -146,7 +147,8 @@ const ProductCard = ({ product, variant = 'default', priority = false }) => {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleQuickView(e); }}
-                className="p-2 rounded-full bg-bg/80 backdrop-blur-sm border border-border/50 text-text-muted hover:text-text hover:border-border-hover transition-all duration-200"
+                style={{ '--tap-w': '38px' }}
+                className="tap-safe p-2 rounded-full bg-bg/80 backdrop-blur-sm border border-border/50 text-text-muted hover:text-text hover:border-border-hover transition-all duration-200"
                 aria-label="Quick view"
               >
                 <Eye className="w-4 h-4" />
@@ -155,15 +157,19 @@ const ProductCard = ({ product, variant = 'default', priority = false }) => {
           </div>
 
           {maxImages > 1 && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="tap-row-dots absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               {product.images.slice(0, 3).map((_, i) => (
                 <motion.button
                   key={i}
                   whileHover={{ scale: 1.3 }}
                   whileTap={{ scale: 0.8 }}
                   onClick={(e) => { e.stopPropagation(); e.preventDefault(); setActiveImage(i); }}
+                  // Kept narrower than the 22px centre-to-centre spacing the
+                  // touch gap gives, so neighbouring dots never overlap; the
+                  // height does the real work.
+                  style={{ '--tap-w': '20px', '--tap-h': '40px' }}
                   className={cn(
-                    'w-2 h-2 rounded-full border-2 transition-all duration-200',
+                    'tap-safe w-2 h-2 rounded-full border-2 transition-all duration-200',
                     i === activeImage
                       ? 'bg-accent border-accent scale-125'
                       : 'bg-bg/60 border-border/50 hover:bg-bg/80'

@@ -11,6 +11,7 @@ import ProductQuickView from './components/ProductQuickView';
 import CommandPalette from './components/CommandPalette';
 import Toast from './components/Toast';
 import Footer from './components/Footer';
+import ScrollManager from './components/ScrollManager';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import Product from './pages/Product';
@@ -70,6 +71,10 @@ function AppRoutes() {
         animate="animate"
         exit="exit"
       >
+        {/* Inside the keyed transition on purpose: it mounts with the
+            incoming page, which is the only moment at which resetting the
+            scroll position is invisible to the visitor. */}
+        <ScrollManager />
         <Routes location={location}>
           <Route path="/" element={<Home />} />
           <Route path="/shop" element={<Shop />} />

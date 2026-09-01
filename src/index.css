@@ -86,6 +86,50 @@
 }
 
 @layer utilities {
+  /**
+   * Expands a control's touch target without changing how it looks.
+   *
+   * The card actions (wishlist, quick view, add to cart) measured 34-38px and
+   * the image dots 8px — all well under the 44px every touch guideline asks
+   * for, and all of them primary shopping controls on a phone. Growing the
+   * visible chrome to 44px would have made the cards clumsy, so instead an
+   * empty ::after is centred over each control and absorbs the tap on the
+   * button's behalf.
+   *
+   * The two axes are separate on purpose. A square 44px box around controls
+   * sitting 14px apart does not help anyone: each box reaches past its
+   * neighbour's centre, the last one in the DOM paints on top, and every tap
+   * in the row lands on the same control. So --tap-w is set per use to stay
+   * INSIDE the spacing to the nearest neighbour, while --tap-h grows freely
+   * because nothing sits above or below these rows.
+   *
+   * Coarse pointers only: on a mouse these invisible boxes would overlap
+   * neighbouring controls and steal their hover states, and a cursor does not
+   * need the help.
+   */
+  .tap-safe {
+    position: relative;
+  }
+
+  @media (pointer: coarse) {
+    .tap-safe::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, var(--tap-w, 44px));
+      height: max(100%, var(--tap-h, 44px));
+      transform: translate(-50%, -50%);
+    }
+
+    /* Carousel dots are the tightest row on the page, so on touch they also
+       get more room between them — that is what lets the hit boxes grow
+       sideways at all. */
+    .tap-row-dots {
+      gap: 0.75rem;
+    }
+  }
+
   .text-balance {
     text-wrap: balance;
   }
@@ -162,6 +206,130 @@
 }
 
 /* =========================================================
+   SECTION FURNITURE — holo grid + ticker
+
+   Both are page-wide decoration for the non-vault pages, and both are
+   written as CSS animations rather than JS: they run for the whole life of
+   the page, and nothing here needs to know about React state, so paying a
+   rAF callback (and a re-render budget) for them would be waste.
+
+   Everything animates transform/opacity only, and the whole block goes
+   still under prefers-reduced-motion.
+   ========================================================= */
+
+@layer components {
+  .holo-grid {
+    --holo: 139, 92, 246;
+    perspective: 340px;
+  }
+  .holo-grid[data-tone='cyan'] {
+    --holo: 34, 211, 238;
+  }
+
+  /* The floor: a plain square grid, laid flat by a 3D rotation and scrolled
+     along its own axis. Doing the perspective with a transform (rather than
+     drawing a converging grid by hand) is what makes the lines actually
+     converge toward a vanishing point as they recede. */
+  .holo-grid-floor {
+    position: absolute;
+    left: -50%;
+    right: -50%;
+    bottom: -12%;
+    height: 78%;
+    background-image:
+      linear-gradient(rgba(var(--holo), 0.22) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--holo), 0.16) 1px, transparent 1px);
+    background-size: 54px 54px;
+    transform: rotateX(72deg);
+    transform-origin: bottom center;
+    -webkit-mask-image: linear-gradient(0deg, #000 5%, transparent 80%);
+    mask-image: linear-gradient(0deg, #000 5%, transparent 80%);
+    animation: holoGridDrift 5s linear infinite;
+    will-change: background-position;
+  }
+
+  .holo-grid[data-flip='true'] .holo-grid-floor {
+    bottom: auto;
+    top: -12%;
+    transform: rotateX(-72deg);
+    transform-origin: top center;
+    -webkit-mask-image: linear-gradient(180deg, #000 5%, transparent 80%);
+    mask-image: linear-gradient(180deg, #000 5%, transparent 80%);
+  }
+
+  /* A wide, very soft band travelling across the section. Slow enough that
+     it reads as ambient rather than as something demanding attention. */
+  .holo-grid-sweep {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 35%,
+      rgba(var(--holo), 0.07) 48%,
+      rgba(var(--holo), 0.12) 50%,
+      rgba(var(--holo), 0.07) 52%,
+      transparent 65%
+    );
+    transform: translateX(-60%);
+    animation: holoGridSweep 14s ease-in-out infinite;
+  }
+
+  /* Glow where the grid meets the vanishing point, so the floor has a
+     horizon instead of just fading out. */
+  .holo-grid-horizon {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 18%;
+    height: 40%;
+    background: radial-gradient(
+      ellipse 60% 100% at 50% 100%,
+      rgba(var(--holo), 0.14),
+      transparent 70%
+    );
+  }
+  .holo-grid[data-flip='true'] .holo-grid-horizon {
+    bottom: auto;
+    top: 18%;
+    background: radial-gradient(ellipse 60% 100% at 50% 0%, rgba(var(--holo), 0.14), transparent 70%);
+  }
+
+  @keyframes holoGridDrift {
+    to { background-position: 0 54px, 0 0; }
+  }
+
+  @keyframes holoGridSweep {
+    0%, 100% { transform: translateX(-60%); }
+    50% { transform: translateX(60%); }
+  }
+
+  /* Ticker. The track holds the item list twice; -50% lands the second copy
+     exactly where the first started, which is what makes the loop seamless. */
+  .ticker-track {
+    animation: tickerScroll var(--ticker-duration, 34s) linear infinite;
+  }
+  .ticker-track-reverse {
+    animation-direction: reverse;
+  }
+  .ticker:hover .ticker-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes tickerScroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .holo-grid-floor,
+    .holo-grid-sweep,
+    .ticker-track {
+      animation: none;
+    }
+    .holo-grid-sweep { opacity: 0; }
+  }
+}
+
+/* =========================================================
    ENTER THE VAULT — the hero's portal CTA
 
    This one button is the only door to the 3D world, sitting third in a row
@@ -197,7 +365,7 @@
        the point — this is the part that catches the eye from across the
        page, before any of the detail inside the button reads at all. */
     background:
-      radial-gradient(56% 120% at 50% 50%,
+      radial-gradient(ellipse 56% 120% at 50% 50%,
         rgba(139, 92, 246, 0.78),
         rgba(34, 211, 238, 0.34) 52%,
         transparent 78%);
@@ -260,7 +428,7 @@
        depth, so the ring around it reads as light falling on a surface
        rather than a stroke drawn on a hole. */
     background:
-      radial-gradient(120% 90% at 50% -10%, rgba(139, 92, 246, 0.28), transparent 62%),
+      radial-gradient(ellipse 120% 90% at 50% -10%, rgba(139, 92, 246, 0.28), transparent 62%),
       #08060f;
   }
 
@@ -269,13 +437,13 @@
     position: absolute;
     inset: 1.5px;
     background-image:
-      linear-gradient(to right, rgba(139, 92, 246, 0.4) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(34, 211, 238, 0.28) 1px, transparent 1px);
+      linear-gradient(90deg, rgba(139, 92, 246, 0.4) 1px, transparent 1px),
+      linear-gradient(rgba(34, 211, 238, 0.28) 1px, transparent 1px);
     background-size: 20px 20px;
     /* Fade out low, so it reads as a floor receding under the label rather
        than graph paper laid over the whole button. */
-    -webkit-mask-image: linear-gradient(to top, #000, transparent 58%);
-    mask-image: linear-gradient(to top, #000, transparent 58%);
+    -webkit-mask-image: linear-gradient(0deg, #000, transparent 58%);
+    mask-image: linear-gradient(0deg, #000, transparent 58%);
     opacity: 0.3;
     animation: vaultCtaGrid 2s linear infinite;
     transition: opacity var(--transition-base);

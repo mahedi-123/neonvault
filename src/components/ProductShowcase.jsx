@@ -167,7 +167,7 @@ const ProductShowcase = () => {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={handleWishlist}
-                  className={`p-2.5 rounded-full bg-bg/70 backdrop-blur-sm border border-border/50 text-text-muted hover:text-text transition-all duration-200 ${inWishlist ? 'text-accent border-accent/50' : ''}`}
+                  className={`tap-safe p-2.5 rounded-full bg-bg/70 backdrop-blur-sm border border-border/50 text-text-muted hover:text-text transition-all duration-200 ${inWishlist ? 'text-accent border-accent/50' : ''}`}
                   aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
                 >
                   <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
@@ -177,7 +177,7 @@ const ProductShowcase = () => {
                   whileTap={{ scale: 0.9 }}
                   onClick={handleAddToCart}
                   disabled={!showcaseProduct.inStock}
-                  className="p-2.5 rounded-full bg-bg/70 backdrop-blur-sm border border-border/50 text-text-muted hover:text-text transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="tap-safe p-2.5 rounded-full bg-bg/70 backdrop-blur-sm border border-border/50 text-text-muted hover:text-text transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label="Add to cart"
                 >
                   <ShoppingBag className="w-4 h-4" />

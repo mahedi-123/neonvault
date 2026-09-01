@@ -126,7 +126,7 @@ const Navbar = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={openSearch}
-              className="p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200"
               aria-label="Search"
             >
               <Search className="w-5 h-5" />
@@ -136,7 +136,7 @@ const Navbar = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200 lg:hidden"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200 lg:hidden"
               aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileMenuOpen}
             >
@@ -147,7 +147,7 @@ const Navbar = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setIsOpen(true)}
-              className="relative p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200"
+              className="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200"
               aria-label={`Cart${itemCount > 0 ? `, ${itemCount} items` : ', empty'}`}
             >
               <ShoppingBag className="w-5 h-5" />
@@ -164,7 +164,7 @@ const Navbar = () => {
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className="relative p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200 hidden sm:flex"
+              className="relative hidden min-h-[44px] min-w-[44px] items-center justify-center p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200 sm:inline-flex"
               aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} items` : ', empty'}`}
             >
               <Heart className="w-5 h-5" />
@@ -181,7 +181,7 @@ const Navbar = () => {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => navigate(isAuthenticated ? '/account' : '/sign-in')}
-              className="p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200 hidden sm:flex cursor-pointer"
+              className="hidden min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all duration-200 sm:inline-flex"
               aria-label={isAuthenticated ? 'My Account' : 'Sign In'}
             >
               <User className="w-5 h-5" />
@@ -262,7 +262,7 @@ const Navbar = () => {
                   whileHover={{ scale: 1.1, rotate: 90 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center p-2 rounded-lg bg-surface hover:bg-surface-hover border border-border/50 text-text-muted hover:text-text transition-all"
                   aria-label="Close menu"
                 >
                   <X className="w-5 h-5" />

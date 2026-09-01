@@ -101,7 +101,7 @@ const Hero = () => {
       ref={heroRef}
       onMouseMove={handlePointerMove}
       onMouseLeave={handlePointerLeave}
-      className="relative min-h-screen flex items-center overflow-hidden bg-bg"
+      className="relative flex min-h-[100svh] items-center overflow-hidden bg-bg"
       style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.06), transparent)' }}
       aria-label="NEON VAULT — buy the future"
     >
@@ -137,12 +137,12 @@ const Hero = () => {
         aria-hidden="true"
       />
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-28">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-28">
         <motion.div
           variants={staggerContainer(0.14, 0.1)}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] items-center gap-16 lg:gap-12"
+          className="grid grid-cols-1 items-center gap-12 md:grid-cols-[1.15fr_0.85fr] md:gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12"
         >
           {/* Text column */}
           <motion.div style={textScrollStyle} className="relative z-10">
@@ -214,7 +214,7 @@ const Hero = () => {
             <motion.div
               style={productTiltStyle}
               variants={staggerContainer(0.15, 0.25)}
-              className="relative mx-auto max-w-sm lg:max-w-md"
+              className="relative mx-auto w-full max-w-sm md:max-w-none lg:max-w-md"
             >
               <motion.div
                 variants={clipReveal}

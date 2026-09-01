@@ -1,189 +1,228 @@
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, TrendingUp, Package, Heart, Zap } from 'lucide-react';
-import { cn } from '../utils/helpers';
+import { Sparkles, TrendingUp, Package, Heart, Zap, ArrowRight } from 'lucide-react';
 import Button from '../components/Button';
-import Badge from '../components/Badge';
-import ProductCard from '../components/ProductCard';
 import ProductGrid from '../components/ProductGrid';
 import Hero from '../components/Hero';
 import ProductShowcase from '../components/ProductShowcase';
-import { getNewDrops, getBestSellers, getLimitedProducts, products } from '../data/products';
+import HoloGrid from '../components/HoloGrid';
+import SectionHeading from '../components/SectionHeading';
+import StatStrip from '../components/StatStrip';
+import Ticker from '../components/Ticker';
+import EnterVaultButton from '../components/EnterVaultButton';
+import { Reveal, hoverLift, staggerContainer, viewportOnce } from '../lib/motion';
+import { getNewDrops, getBestSellers } from '../data/products';
+
+const features = [
+  {
+    icon: Sparkles,
+    title: 'Curated Selection',
+    description: 'Every product is hand-picked by our team of tech enthusiasts and experts.',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Latest Technology',
+    description: 'Access to the newest releases before they hit mainstream retailers.',
+  },
+  {
+    icon: Package,
+    title: 'Free Shipping',
+    description: 'Complimentary express shipping on all orders over $200.',
+  },
+  {
+    icon: Heart,
+    title: '2-Year Warranty',
+    description: 'Peace of mind with extended warranty on every purchase.',
+  },
+];
+
+const stats = [
+  { value: 13, label: 'Districts in the vault', suffix: '' },
+  { value: 48, label: 'Hours per drop window', suffix: 'h' },
+  { value: 2, label: 'Year warranty, everything', suffix: 'yr' },
+  { value: 200, label: 'Free shipping over', prefix: '$' },
+];
+
+const tickerItems = [
+  'FREE EXPRESS SHIPPING OVER $200',
+  'NEW DROP EVERY THURSDAY',
+  '30-DAY NO-QUESTIONS RETURNS',
+  '2-YEAR WARRANTY AS STANDARD',
+  'AUTHENTICATED STOCK ONLY',
+  'WALK THE VAULT IN 3D',
+];
+
+const cardTransition = { duration: 0.5, ease: [0.16, 1, 0.3, 1] };
+
+/**
+ * Trim a run of products to something that fills whole rows.
+ *
+ * The grid is four-up on desktop, so five products left one card marooned
+ * beside three empty columns — which reads as a layout bug rather than as a
+ * short list. Falls back to the raw list when there are fewer than four, so
+ * a thin category still shows what it has.
+ */
+const fillRows = (list, perRow = 4) =>
+  list.length >= perRow ? list.slice(0, Math.floor(list.length / perRow) * perRow) : list;
 
 const Home = () => {
   const navigate = useNavigate();
-  const newDrops = getNewDrops();
-  const bestSellers = getBestSellers();
-  const limitedProducts = getLimitedProducts();
-
-  const features = [
-    {
-      icon: Sparkles,
-      title: 'Curated Selection',
-      description: 'Every product is hand-picked by our team of tech enthusiasts and experts.',
-    },
-    {
-      icon: TrendingUp,
-      title: 'Latest Technology',
-      description: 'Access to the newest releases before they hit mainstream retailers.',
-    },
-    {
-      icon: Package,
-      title: 'Free Shipping',
-      description: 'Complimentary express shipping on all orders over $200.',
-    },
-    {
-      icon: Heart,
-      title: '2-Year Warranty',
-      description: 'Peace of mind with extended warranty on every purchase.',
-    },
-  ];
+  const newDrops = fillRows(getNewDrops());
+  const bestSellers = fillRows(getBestSellers());
 
   return (
     <>
       <Hero />
+
+      <Ticker items={tickerItems} />
+
       <ProductShowcase />
 
-      <section className="relative py-20 lg:py-32" aria-labelledby="features-heading">
-        <div className="absolute inset-0 grid-pattern opacity-10" />
-        <div className="absolute inset-0 noise-overlay" />
+      {/* 01 — why this shop */}
+      <section className="relative overflow-hidden py-16 sm:py-20 lg:py-32" aria-labelledby="features-heading">
+        <HoloGrid tone="violet" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <SectionHeading
+            index={1}
+            eyebrow="Why the vault"
+            title="Built on trust"
+            id="features-heading"
+          />
+
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            variants={staggerContainer(0.09)}
+            initial="hidden"
+            whileInView="visible"
+            viewport={viewportOnce}
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8"
           >
-            {features.map((feature, index) => (
+            {features.map((feature) => (
               <motion.div
                 key={feature.title}
-                className="group p-6 lg:p-8 bg-surface/50 border border-border/50 rounded-2xl transition-all duration-300 hover:border-accent/30 hover:shadow-[0_20px_60px_-20px_rgba(139,92,246,0.12)]"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + index * 0.1 }}
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  visible: { opacity: 1, y: 0, transition: cardTransition },
+                }}
+                whileHover={hoverLift}
+                className="group relative overflow-hidden rounded-2xl border border-border/50 bg-surface/50 p-5 transition-colors duration-300 hover:border-accent/40 sm:p-6 lg:p-8"
               >
-                <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-xl bg-accent/10 flex items-center justify-center text-accent mb-4 group-hover:bg-accent group-hover:text-bg transition-colors">
-                  <feature.icon className="w-6 h-6 lg:w-7 lg:h-7" />
+                {/* Corner tick — a small piece of instrument chrome that only
+                    resolves on hover, so the grid rewards a pointer without
+                    shouting at everyone who scrolls past. */}
+                <span className="pointer-events-none absolute right-4 top-4 h-3 w-3 border-r border-t border-accent/0 transition-colors duration-300 group-hover:border-accent/70" />
+
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10 text-accent transition-colors duration-300 group-hover:bg-accent group-hover:text-bg lg:h-14 lg:w-14">
+                  <feature.icon className="h-6 w-6 lg:h-7 lg:w-7" aria-hidden="true" />
                 </div>
-                <h3 className="text-lg lg:text-xl font-display font-bold text-text mb-2">{feature.title}</h3>
-                <p className="text-text-muted">{feature.description}</p>
+                <h3 className="mb-2 font-display text-lg font-bold text-text lg:text-xl">{feature.title}</h3>
+                <p className="text-sm text-text-muted sm:text-base">{feature.description}</p>
               </motion.div>
             ))}
           </motion.div>
+
+          <StatStrip stats={stats} className="mt-12 sm:mt-16 lg:mt-20" />
         </div>
       </section>
 
-      <section className="relative py-20 lg:py-32" aria-labelledby="new-drops-heading">
-        <div className="absolute inset-0 grid-pattern opacity-10" />
-        <div className="absolute inset-0 noise-overlay" />
+      {/* 02 — new drops */}
+      <section className="relative overflow-hidden py-16 sm:py-20 lg:py-32" aria-labelledby="new-drops-heading">
+        <HoloGrid tone="cyan" flip />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-12">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <Badge variant="accent" className="mb-4 inline-flex" dot>
-                <Zap className="w-3 h-3 mr-1" /> NEW DROPS
-              </Badge>
-              <h2 id="new-drops-heading" className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight">
-                JUST LANDED
-              </h2>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <SectionHeading
+            index={2}
+            eyebrow="New drops"
+            title="Just landed"
+            id="new-drops-heading"
+            action={
               <Button
                 variant="secondary"
                 size="lg"
-                leftIcon={<Package className="w-5 h-5" />}
+                leftIcon={<Zap className="h-5 w-5" />}
                 onClick={() => navigate('/new-drops')}
+                className="w-full sm:w-auto"
               >
                 VIEW ALL NEW DROPS
               </Button>
-            </motion.div>
-          </div>
-
-          <ProductGrid
-            initialProducts={newDrops}
-            className="mb-16"
+            }
           />
+
+          <Reveal intensity="subtle">
+            <ProductGrid initialProducts={newDrops} />
+          </Reveal>
         </div>
       </section>
 
-      <section className="relative py-20 lg:py-32" aria-labelledby="bestsellers-heading">
-        <div className="absolute inset-0 grid-pattern opacity-10" />
-        <div className="absolute inset-0 noise-overlay" />
+      {/* 03 — best sellers */}
+      <section className="relative overflow-hidden py-16 sm:py-20 lg:py-32" aria-labelledby="bestsellers-heading">
+        <HoloGrid tone="violet" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-12">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <Badge variant="bestseller" className="mb-4 inline-flex" dot>
-                <TrendingUp className="w-3 h-3 mr-1" /> BEST SELLERS
-              </Badge>
-              <h2 id="bestsellers-heading" className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight">
-                TOP RATED
-              </h2>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <SectionHeading
+            index={3}
+            eyebrow="Best sellers"
+            title="Top rated"
+            id="bestsellers-heading"
+            action={
               <Button
                 variant="secondary"
                 size="lg"
-                leftIcon={<Heart className="w-5 h-5" />}
+                leftIcon={<Heart className="h-5 w-5" />}
                 onClick={() => navigate('/best-sellers')}
+                className="w-full sm:w-auto"
               >
                 VIEW ALL BEST SELLERS
               </Button>
-            </motion.div>
-          </div>
-
-          <ProductGrid
-            initialProducts={bestSellers}
-            className="mb-16"
+            }
           />
+
+          <Reveal intensity="subtle">
+            <ProductGrid initialProducts={bestSellers} />
+          </Reveal>
         </div>
       </section>
 
-      <section className="relative py-20 lg:py-32 bg-surface/30 border-y border-border/50" aria-labelledby="cta-heading">
-        <div className="absolute inset-0 grid-pattern opacity-20" />
-        <div className="absolute inset-0 noise-overlay" />
+      <Ticker items={tickerItems} reverse speed={42} />
 
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <Badge variant="primary" className="mb-4 inline-flex" dot>
-              <Sparkles className="w-3 h-3 mr-1" /> JOIN THE VAULT
-            </Badge>
-            <h2 id="cta-heading" className="text-4xl sm:text-5xl lg:text-6xl font-display font-extrabold text-text leading-tight mb-6">
-              READY TO BUY THE FUTURE?
-            </h2>
-            <p className="text-lg text-text-muted mb-10 max-w-xl mx-auto">
-              Join thousands of tech enthusiasts. Get early access to drops, exclusive deals, and insider content.
+      {/* 04 — closing call to action */}
+      <section
+        className="relative overflow-hidden border-y border-border/50 bg-surface/30 py-20 sm:py-24 lg:py-32"
+        aria-labelledby="cta-heading"
+      >
+        <HoloGrid tone="cyan" />
+
+        <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+          <Reveal intensity="strong">
+            <p className="mb-4 font-body text-xs font-semibold uppercase tracking-[0.24em] text-accent-secondary">
+              Join the vault
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button size="xl" leftIcon={<Sparkles className="w-5 h-5" />} onClick={() => navigate('/shop?category=all')}>
-                CREATE ACCOUNT
-              </Button>
-              <Button variant="secondary" size="xl" onClick={() => navigate('/shop')}>
+            <h2
+              id="cta-heading"
+              className="mb-6 font-display text-[clamp(2.25rem,8vw,4rem)] font-extrabold uppercase leading-[0.95] tracking-tight text-text"
+            >
+              Ready to buy the future?
+            </h2>
+            <p className="mx-auto mb-10 max-w-xl text-base text-text-muted sm:text-lg">
+              Get early access to drops, exclusive deals, and the run of thirteen
+              districts you can actually walk through.
+            </p>
+
+            {/* The 3D world is the thing this site has that others don't, so
+                it gets the animated door here too — not buried in the hero. */}
+            <div className="flex flex-col items-center justify-center gap-5 sm:flex-row sm:gap-4">
+              <EnterVaultButton onClick={() => navigate('/vault')} />
+              <Button
+                variant="secondary"
+                size="xl"
+                rightIcon={<ArrowRight className="h-5 w-5" />}
+                onClick={() => navigate('/shop')}
+                className="w-full sm:w-auto"
+              >
                 EXPLORE CATALOG
               </Button>
             </div>
-          </motion.div>
+          </Reveal>
         </div>
       </section>
     </>

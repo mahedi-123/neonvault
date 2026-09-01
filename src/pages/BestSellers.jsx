@@ -4,6 +4,7 @@ import { TrendingUp, Filter, X, ChevronDown, Heart } from 'lucide-react';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
 import ProductGrid from '../components/ProductGrid';
+import HoloGrid from '../components/HoloGrid';
 import FilterPanel from '../components/FilterPanel';
 import ViewToggle from '../components/ViewToggle';
 import { useFilters } from '../context/FilterContext';
@@ -92,9 +93,8 @@ const BestSellers = () => {
   ];
 
   return (
-    <div className="min-h-screen pt-20 lg:pt-24 pb-20">
-      <div className="absolute inset-0 grid-pattern opacity-10" />
-      <div className="absolute inset-0 noise-overlay" />
+    <div className="relative min-h-screen overflow-hidden pt-20 lg:pt-24 pb-20">
+      <HoloGrid tone="violet" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div className="mb-12" variants={staggerContainer(0.1)} initial="hidden" animate="visible">

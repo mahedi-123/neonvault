@@ -1,11 +1,19 @@
 import { motion } from 'motion/react';
 import { X, ChevronDown, ChevronUp, SlidersHorizontal, Tag, DollarSign, TrendingUp, Sparkles, Filter as FilterIcon, CheckCircle } from 'lucide-react';
 import { cn } from '../utils/helpers';
+import { useIsLgUp } from '../hooks/useMediaQuery';
 import Button from './Button';
 import { useFilters } from '../context/FilterContext';
 import { categories } from '../data/products';
 
 const FilterPanel = ({ isOpen, onClose, className = '' }) => {
+  // The panel is an off-canvas drawer on small screens and an inline sidebar
+  // from lg up. That split has to be known in JS, not just CSS: the drawer
+  // animation below writes an inline transform, and an inline style beats the
+  // lg: classes every time — which is why the desktop sidebar was being
+  // translated a full viewport off-screen and no filters were reachable on a
+  // desktop at all.
+  const isSidebar = useIsLgUp();
   const {
     selectedCategories,
     setSelectedCategories,
@@ -63,12 +71,15 @@ const FilterPanel = ({ isOpen, onClose, className = '' }) => {
           'lg:relative lg:max-w-none lg:w-auto lg:border-0 lg:shadow-none lg:bg-transparent lg:flex-row lg:items-start lg:h-auto lg:p-0',
           className
         )}
-        initial={{ x: '100vw' }}
-        animate={{ x: isOpen ? 0 : '100vw' }}
-        exit={{ x: '100vw' }}
+        initial={isSidebar ? false : { x: '100vw' }}
+        animate={isSidebar ? { x: 0 } : { x: isOpen ? 0 : '100vw' }}
+        exit={isSidebar ? undefined : { x: '100vw' }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        role="dialog"
-        aria-modal="true"
+        // Only a dialog when it is actually a drawer over the page; as an
+        // inline sidebar it is just part of the document, and announcing it
+        // as a modal would trap screen-reader users in it.
+        role={isSidebar ? undefined : 'dialog'}
+        aria-modal={isSidebar ? undefined : 'true'}
         aria-label="Filters"
       >
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border/50 lg:hidden">
