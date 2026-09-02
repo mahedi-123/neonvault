@@ -42,7 +42,7 @@ const FRAG = /* glsl */ `
  * Rendered with fog disabled and depth writes off — it is a backdrop, not
  * geometry, and must never occlude or be tinted by the scene's fog.
  */
-const VaultSky = () => {
+const VaultSky = ({ lite = false }) => {
   const uniforms = useMemo(
     () => ({
       uZenith: { value: new Color('#150f2f') },
@@ -59,7 +59,7 @@ const VaultSky = () => {
     <mesh frustumCulled={false} renderOrder={-1000}>
       {/* Big enough to enclose the city outside the barrier. At the old
           80-unit radius the far towers punched straight through the dome. */}
-      <sphereGeometry args={[300, 32, 16]} />
+      <sphereGeometry args={[300, lite ? 16 : 32, lite ? 10 : 16]} />
       <shaderMaterial
         vertexShader={VERT}
         fragmentShader={FRAG}

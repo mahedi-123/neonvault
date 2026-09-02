@@ -81,6 +81,16 @@ export function useVaultPointer() {
       if (mode !== 'overview') return;
 
       steerId = e.pointerId;
+      // Belt and braces with the canvas's `touch-action: none` (see
+      // index.css): capture routes the rest of this gesture to the canvas
+      // whatever it passes over, so a finger that strays onto the HUD, or a
+      // mouse that leaves the window, keeps steering instead of silently
+      // dropping the courier mid-stride.
+      try {
+        e.target.setPointerCapture?.(e.pointerId);
+      } catch {
+        /* capture is an optimisation, never a requirement */
+      }
       radius = padRadius();
       startX = e.clientX;
       startY = e.clientY;

@@ -128,7 +128,7 @@ const NEAREST_NEIGHBOR_DIST = zones.reduce((acc, a) => {
  * All CORE-only lighting is distance-limited so it stays local and doesn't
  * change how neighbouring zones read.
  */
-function CoreGeometry({ factorRef, isTouch }) {
+function CoreGeometry({ factorRef, isTouch, lite = false }) {
   const spireGroupRef = useRef(null);
   const spireMatRef = useRef(null);
   const glowMatRef = useRef(null);
@@ -238,11 +238,7 @@ function CoreGeometry({ factorRef, isTouch }) {
           harder this pass — CORE is the room's one hero light and needs to
           be unmistakable from the overview, not just technically brighter
           on paper. */}
-      <pointLight position={[0, 4.6, 2.6]} color={VIOLET} intensity={2.6} distance={11} decay={2} />
-      {/* Pedestal front + immediate floor contact around it */}
-      <pointLight position={[0, 1.3, 1.8]} color={VIOLET} intensity={1.1} distance={6.5} decay={2} />
-      {/* Pedestal far side — a subtle cool rim so it doesn't go flat/silhouette on the side the key misses */}
-      <pointLight position={[-1.8, 1.9, -0.6]} color={CYAN} intensity={0.45} distance={5} decay={2} />
+      <pointLight position={[0, 4.6, 2.6]} color={VIOLET} intensity={lite ? 3.4 : 2.6} distance={11} decay={2} />
       {/* Doorway, eye-level — the focus camera sits close and low, so the
           gradient has to land at ~2-3 units up, not near the lintel. Pulled
           back from the pylon face (a tight source right on the surface
@@ -250,15 +246,30 @@ function CoreGeometry({ factorRef, isTouch }) {
           the face's width instead: brighter on the near/right edge, fading
           across to the left pylon and into depth. */}
       <pointLight position={[3.6, 3.1, -1.7]} color={VIOLET} intensity={6.5} distance={8} decay={2} />
-      {/* Doorway, upper — a secondary top-corner wash for the lintel/upper pylon, seen from farther overview distances */}
-      <pointLight position={[2.6, 6.9, -3.6]} color={VIOLET} intensity={1.3} distance={7} decay={2} />
-      {/* Doorway threshold — the outer-wall-to-niche transition step, offset off-axis rather than a symmetric flood */}
-      <pointLight position={[-0.8, 2.6, -3.6]} color={CYAN} intensity={0.65} distance={6.5} decay={2} />
-      {/* Recessed niche — the deepest, dimmest glow in the hierarchy; the
-          niche material's own flat emissive is deliberately low (see above)
-          so this point light's radial falloff — not a uniform surface glow
-          — is what reads as "recessed", brighter center fading at the edges */}
-      <pointLight position={[0, 2.85, -7.3]} color={CYAN} intensity={0.85} distance={4.5} decay={2} />
+
+      {/* The rest of the hierarchy is a luxury. Seven point lights in one
+          district is more than the entire rest of the scene can afford on a
+          low-tier device, so lite keeps the two that carry the composition —
+          the artifact key above and the doorway rake — and lets the five
+          supporting lights go. What they were doing was shaping gradients
+          that a phone cannot afford to resolve anyway. */}
+      {!lite && (
+        <>
+          {/* Pedestal front + immediate floor contact around it */}
+          <pointLight position={[0, 1.3, 1.8]} color={VIOLET} intensity={1.1} distance={6.5} decay={2} />
+          {/* Pedestal far side — a subtle cool rim so it doesn't go flat/silhouette on the side the key misses */}
+          <pointLight position={[-1.8, 1.9, -0.6]} color={CYAN} intensity={0.45} distance={5} decay={2} />
+          {/* Doorway, upper — a secondary top-corner wash for the lintel/upper pylon, seen from farther overview distances */}
+          <pointLight position={[2.6, 6.9, -3.6]} color={VIOLET} intensity={1.3} distance={7} decay={2} />
+          {/* Doorway threshold — the outer-wall-to-niche transition step, offset off-axis rather than a symmetric flood */}
+          <pointLight position={[-0.8, 2.6, -3.6]} color={CYAN} intensity={0.65} distance={6.5} decay={2} />
+          {/* Recessed niche — the deepest, dimmest glow in the hierarchy; the
+              niche material's own flat emissive is deliberately low (see above)
+              so this point light's radial falloff — not a uniform surface glow
+              — is what reads as "recessed", brighter center fading at the edges */}
+          <pointLight position={[0, 2.85, -7.3]} color={CYAN} intensity={0.85} distance={4.5} decay={2} />
+        </>
+      )}
     </group>
   );
 }
@@ -1778,7 +1789,7 @@ function PowerGeometry({ factorRef, accentColor, isTouch = false }) {
 
 /** CREATOR STUDIO — a cinema camera on a tripod inside a ring light, with a
  *  boom mic overhead and a recording tally that blinks. */
-function CreatorGeometry({ factorRef, accentColor, isTouch = false }) {
+function CreatorGeometry({ factorRef, accentColor, isTouch = false, lite = false }) {
   const ringRef = useRef(null);
   const ringMatRef = useRef(null);
   const bodyMatRef = useRef(null);
@@ -1883,7 +1894,7 @@ function CreatorGeometry({ factorRef, accentColor, isTouch = false }) {
           />
         </mesh>
       </group>
-      <pointLight position={[0, 1.85, 0.5]} color="#efe6ff" intensity={1.8} distance={9} decay={2} />
+      {!lite && <pointLight position={[0, 1.85, 0.5]} color="#efe6ff" intensity={1.8} distance={9} decay={2} />}
 
       {/* Boom mic */}
       <group ref={boomRef} position={[-1.5, 2.7, 0.3]} rotation={[0, 0, -0.5]}>
@@ -2087,7 +2098,7 @@ const GEOMETRY_BY_VARIANT = {
  * so hovering never triggers a React re-render of the 3D subtree — only the
  * Html label (real DOM) re-renders on state change, via useVaultStore.
  */
-const Zone = ({ config, isTouch }) => {
+const Zone = ({ config, isTouch, lite = false }) => {
   const groupRef = useRef(null);
   const platformRingMatRef = useRef(null);
   const lightRef = useRef(null);
@@ -2347,13 +2358,22 @@ const Zone = ({ config, isTouch }) => {
         {/* decay=1 (linear) rather than the physical default of 2 — a much
             more gradual falloff across the pool's width, which is what
             reads as atmospheric spill rather than a point-light hotspot. */}
-        <pointLight ref={floorLightRef} position={[0, 0.5, 0]} color={accentColor} intensity={0} distance={poolRadius * 1.6} decay={1} />
+        {/* Two point lights per district, thirteen districts. On the tier
+            that can afford them they are what makes an exhibit read as a lit
+            display; on the tier that cannot, they are twenty-six extra
+            iterations in every fragment shader in the scene, and the raised
+            hemisphere in VaultCanvas stands in for them. */}
+        {!lite && (
+          <pointLight ref={floorLightRef} position={[0, 0.5, 0]} color={accentColor} intensity={0} distance={poolRadius * 1.6} decay={1} />
+        )}
 
         {/* Sits near the label, not at a fixed mid-height — an overhead
             light is what makes top-facing surfaces read as "receiving a
             spotlight from above" rather than an ambient fill; it's also
             what the new beam below visually represents. */}
-        <pointLight ref={lightRef} position={[0, beamTop, 0]} color={accentColor} intensity={0.35} distance={12} decay={1.6} />
+        {!lite && (
+          <pointLight ref={lightRef} position={[0, beamTop, 0]} color={accentColor} intensity={0.35} distance={12} decay={1.6} />
+        )}
 
         {/* The label → exhibit spotlight connector. Two concentric,
             open-ended cylinders (a slim bright core + a fatter, softer
@@ -2403,7 +2423,7 @@ const Zone = ({ config, isTouch }) => {
         </mesh>
 
         <group rotation={[0, faceAngle, 0]}>
-          <GeometryComponent factorRef={factorRef} accentColor={accentColor} isTouch={isTouch} />
+          <GeometryComponent factorRef={factorRef} accentColor={accentColor} isTouch={isTouch} lite={lite} />
         </group>
       </group>
 

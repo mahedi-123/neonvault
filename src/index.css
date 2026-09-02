@@ -327,6 +327,17 @@
     }
     .holo-grid-sweep { opacity: 0; }
   }
+
+  /* Same treatment on a low-tier device, for a different reason: these run
+     forever, and a perpetually animating full-bleed background is a
+     compositor cost the page pays on every single frame whether or not
+     anyone is looking at it. The grid stays — it just stops moving. */
+  [data-quality='lite'] .holo-grid-floor,
+  [data-quality='lite'] .holo-grid-sweep,
+  [data-quality='lite'] .ticker-track {
+    animation: none;
+  }
+  [data-quality='lite'] .holo-grid-sweep { opacity: 0; }
 }
 
 /* =========================================================
@@ -571,5 +582,70 @@
       opacity: 0;
     }
     .vault-cta-aura { opacity: 0.5; }
+  }
+
+  /* The button keeps its shape and its glow on a low-tier device; what it
+     loses is eight simultaneous infinite animations, several of which
+     animate filters and gradients — the most expensive thing a phone GPU
+     can be asked to redraw sixty times a second. */
+  [data-quality='lite'] .vault-cta-ring,
+  [data-quality='lite'] .vault-cta-grid,
+  [data-quality='lite'] .vault-cta-scan,
+  [data-quality='lite'] .vault-cta-pulse,
+  [data-quality='lite'] .vault-cta-aura,
+  [data-quality='lite'] .vault-cta-spark,
+  [data-quality='lite'] .vault-cta-icon {
+    animation: none;
+  }
+  [data-quality='lite'] .vault-cta-scan,
+  [data-quality='lite'] .vault-cta-spark {
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  /* ---------------------------------------------------------------
+     Low-tier mode
+     --------------------------------------------------------------- */
+
+  /* Backdrop blur is the single most expensive thing on this site: every
+     blurred surface forces the compositor to re-sample everything behind it,
+     and there are around forty of them across the navbar, cards, panels and
+     the vault overlay. Dropping the blur keeps every layout and colour
+     exactly as it was — the panels are still translucent, they just no
+     longer blur what is under them. */
+  [data-quality='lite'] *,
+  [data-quality='lite'] *::before,
+  [data-quality='lite'] *::after {
+    /* Only the unprefixed property is written here on purpose. Declaring
+       both let the minifier decide they were duplicates and keep just the
+       -webkit- alias, which Tailwind's own unprefixed `backdrop-filter`
+       then beat — the rule shipped and did nothing. The build adds whatever
+       prefix its browser targets need. */
+    backdrop-filter: none !important;
+  }
+
+  /* Without the blur, translucent chrome sits on whatever it happens to
+     overlap, so the surfaces that carry text get more opaque to stay
+     readable — this is the one place lite mode changes how something looks
+     rather than just how it is drawn. */
+  [data-quality='lite'] .bg-surface\/70,
+  [data-quality='lite'] .bg-surface\/80,
+  [data-quality='lite'] .bg-surface\/90 {
+    background-color: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  }
+
+  /* The vault canvas is a control surface, not a document.
+     Without this, a finger drag on a phone is claimed by the browser as a
+     scroll/zoom gesture: it fires pointercancel a few pixels in, the steer
+     ends, and the courier stops dead — which is exactly the "touch and drag
+     does nothing on mobile" bug. touch-action tells the browser up front
+     that this element handles its own gestures. */
+  .vault-canvas,
+  .vault-canvas canvas {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 }

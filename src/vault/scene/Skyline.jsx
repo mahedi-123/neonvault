@@ -234,15 +234,19 @@ const AirTraffic = ({ radius, height, speed, offset, color, length: len }) => {
  * no shadows, no per-building React state. Nothing here is interactive and
  * nothing here is collidable — the player can never get near it.
  */
-const Skyline = ({ isTouch = false }) => {
+const Skyline = ({ isTouch = false, lite = false }) => {
   const buildingsRef = useRef(null);
   const beaconsRef = useRef(null);
   const buildingMat = useRef(null);
   const beaconMat = useRef(null);
   const groundMat = useRef(null);
 
-  const count = isTouch ? 120 : 240;
-  const beaconCount = isTouch ? 14 : 30;
+  // Instanced, so the count costs vertices and fragments rather than draw
+  // calls — but a low-tier GPU is fragment-bound, and every tower is a
+  // procedurally-windowed shader over real screen area. Sixty still reads as
+  // a city; it just has fewer blocks in the back rows.
+  const count = lite ? 60 : isTouch ? 120 : 240;
+  const beaconCount = lite ? 8 : isTouch ? 14 : 30;
 
   const { matrices, scales, seeds, beaconMatrices, beaconSeeds } = useMemo(() => {
     const rand = makeRandom(0x5eed1);
@@ -359,7 +363,7 @@ const Skyline = ({ isTouch = false }) => {
       {/* The plate the city stands on, tucked just under the vault floor so
           the two never z-fight along the seam. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[CX, -0.06, CZ]} frustumCulled={false}>
-        <ringGeometry args={[WORLD_RADIUS - 1, OUTER + 45, isTouch ? 48 : 96, 1]} />
+        <ringGeometry args={[WORLD_RADIUS - 1, OUTER + 45, lite ? 24 : isTouch ? 48 : 96, 1]} />
         <shaderMaterial
           ref={groundMat}
           vertexShader={GROUND_VERT}
@@ -397,14 +401,17 @@ const Skyline = ({ isTouch = false }) => {
         />
       </instancedMesh>
 
-      {!isTouch && (
+      {/* Three separate draw calls plus three per-frame transform updates,
+          for three specks. Worth it where there is headroom; the first thing
+          to go where there isn't. */}
+      {!isTouch && !lite && (
         <>
           <AirTraffic radius={58} height={17} speed={0.10} offset={0.0} color="#67e8f9" length={2.6} />
           <AirTraffic radius={74} height={24} speed={-0.07} offset={2.1} color="#d8b4fe" length={3.4} />
           <AirTraffic radius={47} height={13} speed={0.14} offset={4.4} color="#fda4af" length={2.0} />
         </>
       )}
-      {isTouch && (
+      {isTouch && !lite && (
         <AirTraffic radius={62} height={19} speed={0.10} offset={0.6} color="#67e8f9" length={3.0} />
       )}
     </group>

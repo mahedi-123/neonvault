@@ -24,7 +24,7 @@ const VaultRoute = () => {
   return (
     <VaultErrorBoundary fallback={<VaultDomFallback reason="error" />}>
       <Suspense fallback={<VaultLoadingScreen />}>
-        <VaultExperience isTouch={capability.isTouch} />
+        <VaultExperience isTouch={capability.isTouch} lite={capability.lite} />
       </Suspense>
     </VaultErrorBoundary>
   );

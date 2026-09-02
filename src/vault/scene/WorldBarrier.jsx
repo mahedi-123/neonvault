@@ -109,7 +109,7 @@ const FRAG = /* glsl */ `
  * Additively blended with depth writes off, so it never occludes anything
  * and never fights the transparent floor pools for sort order.
  */
-const WorldBarrier = ({ isTouch = false }) => {
+const WorldBarrier = ({ isTouch = false, lite = false }) => {
   const matRef = useRef(null);
   const playerVec = useMemo(() => new Vector3(), []);
 
@@ -133,7 +133,7 @@ const WorldBarrier = ({ isTouch = false }) => {
   return (
     <mesh position={[WORLD_CENTER[0], 5.0, WORLD_CENTER[1]]}>
       {/* Open-ended: no caps, or the world would have a lid. */}
-      <cylinderGeometry args={[WORLD_RADIUS + 1.2, WORLD_RADIUS + 1.2, 10, isTouch ? 48 : 96, 1, true]} />
+      <cylinderGeometry args={[WORLD_RADIUS + 1.2, WORLD_RADIUS + 1.2, 10, lite ? 28 : isTouch ? 48 : 96, 1, true]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={VERT}

@@ -17,7 +17,7 @@ import { scrollLock } from '../utils/helpers';
  * page scroll (the vault is a fixed full-viewport scene, not a scroll page),
  * and re-arms the entrance sequence on every fresh mount.
  */
-const VaultExperience = ({ isTouch }) => {
+const VaultExperience = ({ isTouch, lite = false }) => {
   const location = useLocation();
   const [contextLost, setContextLost] = useState(false);
 
@@ -66,7 +66,7 @@ const VaultExperience = ({ isTouch }) => {
   // instead of the actual viewport.
   return createPortal(
     <div className="fixed inset-0 z-[45] bg-bg">
-      <VaultCanvas isTouch={isTouch} onContextLost={handleContextLost} />
+      <VaultCanvas isTouch={isTouch} lite={lite} onContextLost={handleContextLost} />
       <VaultOverlayUI isTouch={isTouch} />
     </div>,
     document.body

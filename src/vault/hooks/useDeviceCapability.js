@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TIER_LITE, getTier } from '../../lib/quality';
 
 function detectWebGL() {
   if (typeof document === 'undefined') return false;
@@ -30,6 +31,10 @@ function computeCapability() {
     supported: webgl && !reducedMotion && !lowTier,
     reason,
     isTouch: !pointerFine,
+    // Not a reason to refuse the 3D world — only to build a cheaper one.
+    // Refusing outright is reserved for devices that cannot render it at
+    // all (see `supported` above).
+    lite: getTier() === TIER_LITE,
   };
 }
 
