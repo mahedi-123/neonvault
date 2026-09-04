@@ -39,6 +39,13 @@ export const player = {
    * direction you happened to walk in from.
    */
   autoFacing: false,
+  /**
+   * Live locomotion pace, as a multiple of walking speed (0 stopped, 1 walk,
+   * 2 full run). Written every frame by Player, read by the camera rig so the
+   * rig can ease back when the courier opens up — a small, cheap speed cue
+   * that costs nothing and reads as momentum.
+   */
+  pace: 0,
 };
 
 /**
@@ -99,14 +106,6 @@ export const steer = {
   active: false,
   x: 0,
   y: 0,
-  /**
-   * The same pull already resolved into a world-space direction, against the
-   * camera as it was when the hand last moved. Kept here rather than derived
-   * per frame so that a held pointer walks a straight line while the camera
-   * swings round behind the courier — see useVaultPointer.
-   */
-  worldX: 0,
-  worldZ: -1,
   magnitude: 0,
   originX: 0,
   originY: 0,
@@ -263,6 +262,7 @@ export function resetPlayer() {
   player.hasMoved = false;
   player.intentZoneId = null;
   player.autoFacing = false;
+  player.pace = 0;
   cameraRig.yaw = 0;
   pointerState.dragged = false;
   pointerState.lastDragAt = -Infinity;

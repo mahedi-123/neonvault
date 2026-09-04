@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { steer, useSteerActive } from '../state/playerStore';
 
-/** Must match the pad radius used by useVaultPointer for the knob to reach
- *  the ring exactly as the courier reaches full speed. */
+/** Must match Player.jsx's STEER_DEADZONE — this is that number, drawn. */
+const DEADZONE = 0.12;
+
+/** Must match the pad radius used by useVaultPointer, or the knob reaches the
+ *  ring at a different moment than the courier reaches full speed. */
 function padRadius() {
   const min = Math.min(window.innerWidth, window.innerHeight);
   return Math.max(64, Math.min(150, min * 0.19));
@@ -26,6 +29,7 @@ const SteerPad = () => {
   const rootRef = useRef(null);
   const knobRef = useRef(null);
   const ringRef = useRef(null);
+  const deadRef = useRef(null);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -41,11 +45,22 @@ const SteerPad = () => {
 
       const knob = knobRef.current;
       if (knob) {
-        // Clamped to the ring: past full speed the stick has nothing left to
-        // say, and letting the knob fly off with the pointer would suggest
-        // otherwise.
+        // The pad's origin now follows the pointer once it passes the rim
+        // (see useVaultPointer), so the knob never needs to be clamped away
+        // from the hand — it sits exactly where the filtered pull points.
         const reach = Math.min(1, steer.magnitude) * radius;
-        knob.style.transform = `translate3d(${steer.x * reach - 18}px, ${steer.y * reach - 18}px, 0)`;
+        // Grows a little as the pull approaches a run, which is the only
+        // on-screen readout of how fast the courier is actually going.
+        const grow = 1 + steer.magnitude * 0.22;
+        knob.style.transform =
+          `translate3d(${steer.x * reach - 18}px, ${steer.y * reach - 18}px, 0) scale(${grow})`;
+      }
+
+      const zone = deadRef.current;
+      if (zone) {
+        // The dead zone made visible. Without it the first few pixels of
+        // every drag do nothing for no stated reason, which reads as lag.
+        zone.style.opacity = String(steer.magnitude < DEADZONE ? 0.5 : 0.16);
       }
 
       const ring = ringRef.current;
@@ -82,8 +97,20 @@ const SteerPad = () => {
           transition: 'opacity 120ms linear',
         }}
       />
-      {/* Anchor dot: where the press actually landed, so the direction of the
-          pull is readable even when the knob is near the rim. */}
+      {/* The dead zone, drawn. */}
+      <div
+        ref={deadRef}
+        className="absolute rounded-full border border-dashed border-accent-secondary/50"
+        style={{
+          width: radius * DEADZONE * 2,
+          height: radius * DEADZONE * 2,
+          left: -radius * DEADZONE,
+          top: -radius * DEADZONE,
+          transition: 'opacity 140ms linear',
+        }}
+      />
+      {/* Anchor dot: where the pad is centred, so the direction of the pull is
+          readable even when the knob is out at the rim. */}
       <div className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-accent-secondary/70" />
       <div
         ref={knobRef}

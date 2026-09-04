@@ -47,6 +47,9 @@ const CameraRig = ({ isTouch }) => {
   const settledRef = useRef(false);
   const lastModeRef = useRef('entering');
   const followingRef = useRef(false);
+  /** Damped copy of the courier's pace, so the rig's speed response is its
+   *  own smooth thing rather than a second-hand copy of the stick's. */
+  const paceRef = useRef(0);
 
   // Establishing shot: hold the wide pose, then hand over to the guide. The
   // glide itself is just the normal damping toward the follow pose, which
@@ -131,10 +134,17 @@ const CameraRig = ({ isTouch }) => {
       const rightZ = -Math.sin(yaw);
       const shoulder = follow.shoulder ?? 0;
 
+      /* Ease back and up a little as the courier opens up. Real chase cameras
+         do this and it is most of why running in them feels fast: the change
+         in framing is the cue, not the change in the number. Kept small — a
+         big pull-back at speed reads as the camera falling behind. */
+      paceRef.current = MathUtils.damp(paceRef.current, player.pace, 2.4, dt);
+      const speedPush = paceRef.current * 0.5;
+
       desiredEye.set(
-        player.position.x + Math.sin(yaw) * follow.distance + rightX * shoulder,
-        follow.height,
-        player.position.z + Math.cos(yaw) * follow.distance + rightZ * shoulder
+        player.position.x + Math.sin(yaw) * (follow.distance + speedPush) + rightX * shoulder,
+        follow.height + paceRef.current * 0.16,
+        player.position.z + Math.cos(yaw) * (follow.distance + speedPush) + rightZ * shoulder
       );
       desiredLook.set(
         player.position.x + rightX * shoulder,

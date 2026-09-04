@@ -18,8 +18,24 @@ const RUN_MULTIPLIER = 2.0;
  * is somebody crossing the floor, and should run. Below the dead zone nothing
  * moves at all, or the courier would creep whenever a hand rested still.
  */
-const STEER_DEADZONE = 0.14;
-const STEER_MIN_PACE = 0.34;
+const STEER_DEADZONE = 0.12;
+const STEER_MIN_PACE = 0.30;
+/**
+ * How fast the courier's speed and heading chase what the stick is asking
+ * for, in damping lambdas.
+ *
+ * Speeding up is quicker than slowing down by design: the courier should
+ * answer the hand immediately, but stopping dead the instant a finger lifts
+ * is what made the old steering feel like dragging an icon rather than
+ * steering a person. The glide is short — about a fifth of a second — which
+ * is enough to read as weight and too short to feel like ice.
+ */
+const ACCEL_LAMBDA = 11;
+const DECEL_LAMBDA = 9;
+/** Below this fraction of a walk, treat the courier as stopped. */
+const IDLE_PACE = 0.03;
+/** How quickly the move direction eases toward the stick's direction. */
+const TURN_LAMBDA = 9;
 /** Seconds a dropped footfall ring takes to expand and fade out. */
 const FOOTPRINT_LIFE = 1.1;
 
@@ -92,6 +108,11 @@ const Player = ({ isTouch = false }) => {
   const strideRef = useRef(0);
   const leanRef = useRef(0);
   const paceRef = useRef(1);
+  /** Live locomotion state for analog steering: the speed actually being
+   *  travelled at, and the direction actually being travelled in. Both lag
+   *  the stick on purpose — that lag IS the smoothness. */
+  const moveSpeedRef = useRef(0);
+  const moveDirRef = useRef(new Vector3(0, 0, -1));
   const idleClock = useRef(Math.random() * 20);
   /** Sign of the leg swing last frame — a zero crossing is a foot landing. */
   const lastSwingSign = useRef(1);
@@ -169,20 +190,70 @@ const Player = ({ isTouch = false }) => {
       // hides and click-walk has nothing stale to resume toward.
       player.target.copy(player.position);
       player.intentZoneId = null;
-    } else if (canWalk && steer.active && steer.magnitude > STEER_DEADZONE) {
+    } else if (canWalk && (steer.active || moveSpeedRef.current > IDLE_PACE)) {
       /* ---------- analog steering (held pointer / finger) ----------
-         The direction was already resolved against the camera when the hand
-         last moved (useVaultPointer), so all that is left here is the speed —
-         which, unlike the keyboard's on/off, is a real range taken from how
-         far the pointer has been pulled. */
-      scratchDir.set(steer.worldX, 0, steer.worldZ);
+         The stick says where and how hard. Nothing here follows it directly:
+         speed and direction are both state that CHASES the stick, and the gap
+         between the two is the whole difference between steering a person and
+         dragging a cursor.
 
-      const length = scratchDir.length();
-      if (length > 0.0001) {
-        scratchDir.divideScalar(length);
+         Three things are being smoothed, for three different reasons:
+
+           speed      — eased in and out, so starting has weight and releasing
+                        glides to a stop instead of stopping mid-stride.
+           direction  — eased toward the stick, so a flick of the wrist arcs
+                        the courier round rather than teleporting their facing.
+           turn cost  — a hard reversal cuts the target speed, so the courier
+                        slows into the turn and accelerates out of it the way
+                        anything with momentum does. Without it, pulling the
+                        stick backwards pivots them on the spot at full run. */
+      const steering = steer.active && steer.magnitude > STEER_DEADZONE;
+
+      // What the stick is asking for, before any of the smoothing.
+      let wantPace = 0;
+      if (steering) {
         const pull = (steer.magnitude - STEER_DEADZONE) / (1 - STEER_DEADZONE);
-        stridePace = STEER_MIN_PACE + pull * (RUN_MULTIPLIER - STEER_MIN_PACE);
-        player.position.addScaledVector(scratchDir, PLAYER_SPEED * stridePace * dt);
+        // Squared-ish response. A linear stick spends most of its travel in
+        // the top half of the speed range, which leaves no room to place
+        // yourself precisely; this gives the first half of the pull to walking
+        // pace and the second half to the run.
+        const curve = pull * pull * (0.4 + 0.6 * pull);
+        wantPace = STEER_MIN_PACE + curve * (RUN_MULTIPLIER - STEER_MIN_PACE);
+      }
+
+      /* Desired direction: the screen pull, rotated into the world against the
+         camera as it is RIGHT NOW. See useVaultPointer for why this is read
+         live rather than frozen when the hand moves. */
+      const yaw = cameraRig.yaw;
+      const forwardX = -Math.sin(yaw);
+      const forwardZ = -Math.cos(yaw);
+      // Screen y grows downward, so pulling down the screen walks toward the
+      // camera.
+      const ahead = -steer.y;
+      const side = steer.x;
+      scratchDir.set(forwardX * ahead + -forwardZ * side, 0, forwardZ * ahead + forwardX * side);
+      const wantLen = scratchDir.length();
+      if (steering && wantLen > 0.0001) {
+        scratchDir.divideScalar(wantLen);
+        // dot of two unit vectors: 1 straight on, -1 a full reversal.
+        const align = moveDirRef.current.dot(scratchDir);
+        // Full speed ahead, a third of it through a 180.
+        wantPace *= 0.35 + 0.65 * (align * 0.5 + 0.5);
+        moveDirRef.current.lerp(scratchDir, Math.min(1, dt * TURN_LAMBDA));
+        const dirLen = moveDirRef.current.length();
+        if (dirLen > 0.0001) moveDirRef.current.divideScalar(dirLen);
+      }
+
+      moveSpeedRef.current = MathUtils.damp(
+        moveSpeedRef.current,
+        wantPace,
+        wantPace > moveSpeedRef.current ? ACCEL_LAMBDA : DECEL_LAMBDA,
+        dt
+      );
+
+      if (moveSpeedRef.current > IDLE_PACE) {
+        stridePace = moveSpeedRef.current;
+        player.position.addScaledVector(moveDirRef.current, PLAYER_SPEED * stridePace * dt);
 
         const [cx, cz] = resolvePosition(player.position.x, player.position.z);
         player.position.x = cx;
@@ -190,15 +261,20 @@ const Player = ({ isTouch = false }) => {
 
         // Turn rate scales with pace: a slow steer should read as picking
         // your way around, a fast one as leaning into the turn.
-        const desired = Math.atan2(scratchDir.x, scratchDir.z);
+        const desired = Math.atan2(moveDirRef.current.x, moveDirRef.current.z);
         player.heading += shortestAngle(player.heading, desired) * Math.min(1, dt * (7 + stridePace * 3));
         moving = true;
-        markMoved();
+        if (steering) markMoved();
+      } else {
+        moveSpeedRef.current = 0;
       }
 
       player.target.copy(player.position);
       player.intentZoneId = null;
     } else if (canWalk) {
+      // Anything that is not analog steering starts from a standstill next
+      // time, so a glide never leaks into a click-walk or a keyboard step.
+      moveSpeedRef.current = 0;
       scratchDir.copy(player.target).sub(player.position);
       scratchDir.y = 0;
       const dist = scratchDir.length();
@@ -222,6 +298,7 @@ const Player = ({ isTouch = false }) => {
       }
     }
     player.moving = moving;
+    player.pace = moving ? stridePace : 0;
 
     /* ---------- face the exhibit on arrival ----------
        Approach marks sit on the side of a district facing the middle of the
