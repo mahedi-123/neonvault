@@ -2,8 +2,19 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { WORLD_CENTER, WORLD_RADIUS, zones } from '../zoneConfig';
 
-const VIOLET = '#8b5cf6';
-const CYAN = '#22d3ee';
+/* Props are drawn from the active world's palette rather than fixed hex, so
+   the same lamp posts and arches read as brushed violet metal in the tech
+   world and as painted porcelain or sandstone in the daylight ones. */
+import { PALETTE } from '../zoneConfig';
+
+/* Read inside each component, never at module scope: PALETTE is a live
+   binding that re-points when the player travels to another world, and a
+   module-level const would freeze whichever world loaded first. */
+const tones = () => ({
+  P: PALETTE,
+  VIOLET: PALETTE.floor.ring,
+  CYAN: PALETTE.floor.grid,
+});
 
 /**
  * Everything on the floor that is not a district: street furniture, the
@@ -38,11 +49,11 @@ function clearsDistricts(x, z, minDist) {
   return true;
 }
 
-const LampPost = ({ position, color }) => (
+const LampPost = ({ position, color }) => { const { P } = tones(); return (
   <group position={position}>
     <mesh position={[0, 1.2, 0]}>
       <cylinderGeometry args={[0.05, 0.08, 2.4, 6]} />
-      <meshStandardMaterial color="#2e2450" metalness={0.6} roughness={0.4} />
+      <meshStandardMaterial color={P.structure.body} metalness={0.6} roughness={0.4} />
     </mesh>
     {/* Lit strip up the post. Without it the posts read as bare black sticks
         against the floor — the globe alone is too small to say "lamp". */}
@@ -62,14 +73,14 @@ const LampPost = ({ position, color }) => (
       <meshBasicMaterial color={color} transparent opacity={0.08} toneMapped={false} depthWrite={false} />
     </mesh>
   </group>
-);
+); };
 
-const Crystal = ({ position, scale, color }) => (
+const Crystal = ({ position, scale, color }) => { const { P } = tones(); return (
   <group position={position} scale={scale}>
     <mesh position={[0, 0.55, 0]} rotation={[0, 0.6, 0.12]}>
       <octahedronGeometry args={[0.55, 0]} />
       <meshStandardMaterial
-        color="#241b45"
+        color={P.structure.edge}
         metalness={0.5}
         roughness={0.3}
         emissive={color}
@@ -79,7 +90,7 @@ const Crystal = ({ position, scale, color }) => (
     <mesh position={[0.42, 0.3, 0.22]} rotation={[0.2, 0, 0.3]} scale={0.5}>
       <octahedronGeometry args={[0.55, 0]} />
       <meshStandardMaterial
-        color="#241b45"
+        color={P.structure.edge}
         metalness={0.5}
         roughness={0.3}
         emissive={color}
@@ -91,12 +102,13 @@ const Crystal = ({ position, scale, color }) => (
       <meshBasicMaterial color={color} transparent opacity={0.09} toneMapped={false} depthWrite={false} />
     </mesh>
   </group>
-);
+); };
 
 /** Entrance banners, gently swaying — placed AHEAD of the spawn mark so they
  *  frame the walk in rather than standing between the camera and the
  *  courier for the whole opening shot. */
 const Banner = ({ position, flip = false }) => {
+  const { P, VIOLET, CYAN } = tones();
   const ref = useRef(null);
   const seed = useRef(Math.random() * 10);
 
@@ -109,12 +121,12 @@ const Banner = ({ position, flip = false }) => {
     <group position={position}>
       <mesh position={[0, 1.35, 0]}>
         <cylinderGeometry args={[0.045, 0.045, 2.7, 6]} />
-        <meshStandardMaterial color="#2e2450" metalness={0.6} roughness={0.4} />
+        <meshStandardMaterial color={P.structure.body} metalness={0.6} roughness={0.4} />
       </mesh>
       <group ref={ref} position={[0, 2.5, 0]}>
         <mesh position={[flip ? -0.4 : 0.4, -0.72, 0]}>
           <planeGeometry args={[0.72, 1.3]} />
-          <meshStandardMaterial color="#341c63" emissive={VIOLET} emissiveIntensity={0.24} side={2} />
+          <meshStandardMaterial color={P.structure.light} emissive={VIOLET} emissiveIntensity={0.24 * P.emissive} side={2} />
         </mesh>
         <mesh position={[flip ? -0.4 : 0.4, -0.62, 0.012]}>
           <planeGeometry args={[0.26, 0.26]} />
@@ -132,6 +144,7 @@ const Banner = ({ position, flip = false }) => {
  * foreground to read depth against.
  */
 const EntranceArch = () => {
+  const { P, VIOLET, CYAN } = tones();
   const scanRef = useRef(null);
   const scanMatRef = useRef(null);
 
@@ -154,7 +167,7 @@ const EntranceArch = () => {
         <group key={side} position={[side * 3.9, 0, 0]}>
           <mesh position={[0, 2.6, 0]}>
             <boxGeometry args={[0.6, 5.2, 0.8]} />
-            <meshStandardMaterial color="#241c46" metalness={0.6} roughness={0.4} />
+            <meshStandardMaterial color={P.structure.edge} metalness={0.6} roughness={0.4} />
           </mesh>
           <mesh position={[side * 0.32, 2.6, 0]}>
             <planeGeometry args={[0.06, 4.0]} />
@@ -162,7 +175,7 @@ const EntranceArch = () => {
           </mesh>
           <mesh position={[0, 0.25, 0]}>
             <boxGeometry args={[1.2, 0.5, 1.4]} />
-            <meshStandardMaterial color="#1e1738" metalness={0.5} roughness={0.5} />
+            <meshStandardMaterial color={P.structure.deep} metalness={0.5} roughness={0.5} />
           </mesh>
         </group>
       ))}
@@ -170,7 +183,7 @@ const EntranceArch = () => {
       {/* Lintel */}
       <mesh position={[0, 5.5, 0]}>
         <boxGeometry args={[8.4, 0.55, 0.85]} />
-        <meshStandardMaterial color="#2b2154" metalness={0.6} roughness={0.38} emissive={VIOLET} emissiveIntensity={0.22} />
+        <meshStandardMaterial color={P.structure.body} metalness={0.6} roughness={0.38} emissive={VIOLET} emissiveIntensity={0.22 * P.emissive} />
       </mesh>
       <mesh position={[0, 5.18, 0.44]}>
         <planeGeometry args={[7.6, 0.09]} />
@@ -206,6 +219,7 @@ const EntranceArch = () => {
  * reads as the edge of a city rather than as the end of the geometry.
  */
 const TransitRing = ({ isTouch }) => {
+  const { P, VIOLET, CYAN } = tones();
   const carRefs = useRef([]);
   const [cx, cz] = WORLD_CENTER;
   const RADIUS = WORLD_RADIUS + 3.5;
@@ -238,7 +252,7 @@ const TransitRing = ({ isTouch }) => {
       {/* Track */}
       <mesh position={[0, HEIGHT, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[RADIUS, 0.11, 6, isTouch ? 48 : 96]} />
-        <meshStandardMaterial color="#2b2252" metalness={0.6} roughness={0.4} emissive={VIOLET} emissiveIntensity={0.18} />
+        <meshStandardMaterial color={P.structure.body} metalness={0.6} roughness={0.4} emissive={VIOLET} emissiveIntensity={0.18 * P.emissive} />
       </mesh>
       <mesh position={[0, HEIGHT - 0.22, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[RADIUS, 0.02, 6, isTouch ? 48 : 96]} />
@@ -249,7 +263,7 @@ const TransitRing = ({ isTouch }) => {
       {supports.map((s) => (
         <mesh key={s.key} position={[s.position[0] - cx, HEIGHT / 2, s.position[2] - cz]}>
           <cylinderGeometry args={[0.16, 0.24, HEIGHT, 8]} />
-          <meshStandardMaterial color="#231b44" metalness={0.55} roughness={0.45} />
+          <meshStandardMaterial color={P.structure.edge} metalness={0.55} roughness={0.45} />
         </mesh>
       ))}
 
@@ -267,7 +281,7 @@ const TransitRing = ({ isTouch }) => {
                 loop is the tangent. */}
             <mesh rotation={[0, 0, Math.PI / 2]}>
               <capsuleGeometry args={[0.42, 2.6, 4, 10]} />
-              <meshStandardMaterial color="#2f2461" metalness={0.7} roughness={0.28} emissive={VIOLET} emissiveIntensity={0.2} />
+              <meshStandardMaterial color={P.structure.light} metalness={0.7} roughness={0.28} emissive={VIOLET} emissiveIntensity={0.2 * P.emissive} />
             </mesh>
             {/* Window band */}
             <mesh position={[0, 0.08, 0.43]}>
@@ -287,6 +301,7 @@ const TransitRing = ({ isTouch }) => {
 };
 
 const WorldProps = ({ isTouch = false }) => {
+  const { VIOLET, CYAN } = tones();
   const [cx, cz] = WORLD_CENTER;
 
   const lamps = useMemo(() => {

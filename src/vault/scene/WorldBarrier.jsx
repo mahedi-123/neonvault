@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { AdditiveBlending, Color, DoubleSide, Vector3 } from 'three';
-import { WORLD_CENTER, WORLD_RADIUS } from '../zoneConfig';
+import { PALETTE, WORLD_CENTER, WORLD_RADIUS } from '../zoneConfig';
 import { player } from '../state/playerStore';
 
 const VERT = /* glsl */ `
@@ -23,6 +23,7 @@ const FRAG = /* glsl */ `
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   uniform vec3 uPlayer;
+  uniform float uBoost;
 
   varying vec3 vWorldPos;
   varying vec3 vWorldNormal;
@@ -93,7 +94,9 @@ const FRAG = /* glsl */ `
     vec3 color = mix(uColorA, uColorB, clamp(vUv.y * 1.2 + scan * 0.5, 0.0, 1.0));
     color += prox * 0.35;
 
-    gl_FragColor = vec4(color, clamp(alpha, 0.0, 0.9));
+    // Additive on a pale sky is nearly invisible, so a daylight world drives
+    // the shield harder to keep the boundary legible at all.
+    gl_FragColor = vec4(color, clamp(alpha * uBoost, 0.0, 0.95));
   }
 `;
 
@@ -116,9 +119,10 @@ const WorldBarrier = ({ isTouch = false, lite = false }) => {
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uColorA: { value: new Color('#22d3ee') },
-      uColorB: { value: new Color('#8b5cf6') },
+      uColorA: { value: new Color(PALETTE.barrier.a) },
+      uColorB: { value: new Color(PALETTE.barrier.b) },
       uPlayer: { value: new Vector3(0, 0, 0) },
+      uBoost: { value: PALETTE.scheme === 'light' ? 1.55 : 1 },
     }),
     []
   );

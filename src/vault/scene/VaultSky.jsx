@@ -42,14 +42,14 @@ const FRAG = /* glsl */ `
  * Rendered with fog disabled and depth writes off — it is a backdrop, not
  * geometry, and must never occlude or be tinted by the scene's fog.
  */
-const VaultSky = ({ lite = false }) => {
+const VaultSky = ({ lite = false, palette }) => {
   const uniforms = useMemo(
     () => ({
-      uZenith: { value: new Color('#150f2f') },
-      uHorizon: { value: new Color('#4a2b80') },
-      uGround: { value: new Color('#153048') },
+      uZenith: { value: new Color(palette.sky.zenith) },
+      uHorizon: { value: new Color(palette.sky.horizon) },
+      uGround: { value: new Color(palette.sky.ground) },
     }),
-    []
+    [palette]
   );
 
   return (

@@ -5,6 +5,7 @@ import VaultCanvas from './scene/VaultCanvas';
 import VaultOverlayUI from './overlay/VaultOverlayUI';
 import VaultDomFallback from './fallback/VaultDomFallback';
 import { resetVault } from './state/vaultStore';
+import { resetWorlds, useWorldState } from './state/worldStore';
 import { resetPlayer } from './state/playerStore';
 import { resetControls } from './state/controlStore';
 import { useVaultKeyboard } from './hooks/useVaultKeyboard';
@@ -20,6 +21,7 @@ import { scrollLock } from '../utils/helpers';
 const VaultExperience = ({ isTouch, lite = false }) => {
   const location = useLocation();
   const [contextLost, setContextLost] = useState(false);
+  const worldId = useWorldState((s) => s.worldId);
 
   // WASD / arrows to walk, E to enter an exhibit, Esc to leave one.
   useVaultKeyboard();
@@ -36,6 +38,8 @@ const VaultExperience = ({ isTouch, lite = false }) => {
     // pre-marked, so returning is one click — but a scheme chosen weeks ago
     // on a different device is not something to silently reinstate.
     resetControls();
+    // Back to the world picker on every fresh visit to /vault.
+    resetWorlds();
     scrollLock(true);
     return () => scrollLock(false);
   }, []);
@@ -66,7 +70,22 @@ const VaultExperience = ({ isTouch, lite = false }) => {
   // instead of the actual viewport.
   return createPortal(
     <div className="fixed inset-0 z-[45] bg-bg">
-      <VaultCanvas isTouch={isTouch} lite={lite} onContextLost={handleContextLost} />
+      {/* No canvas until a world has been chosen — the picker is the first
+          thing on screen, and building a scene behind it would download and
+          compile a world the player may not be going to.
+
+          Once one is chosen the canvas stays for the whole visit. Travel
+          rebuilds the scene *inside* it (VaultCanvas keys its contents on the
+          world), which is both cheaper and the only way that does not trip
+          the renderer's own context-lost handling. */}
+      {worldId && (
+        <VaultCanvas
+          isTouch={isTouch}
+          lite={lite}
+          worldId={worldId}
+          onContextLost={handleContextLost}
+        />
+      )}
       <VaultOverlayUI isTouch={isTouch} />
     </div>,
     document.body

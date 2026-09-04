@@ -1,12 +1,10 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { DoubleSide, MathUtils, Vector3 } from 'three';
-import { zones } from '../zoneConfig';
+import { PALETTE, WORLD_PORTAL, zones } from '../zoneConfig';
 import { PLAYER_SPEED, cameraRig, keys, markMoved, player, resolvePosition, steer } from '../state/playerStore';
-import { getSnapshot, setNearZone } from '../state/vaultStore';
+import { getSnapshot, setNearPortal, setNearZone } from '../state/vaultStore';
 
-const VIOLET = '#8b5cf6';
-const CYAN = '#22d3ee';
 
 /** Below this distance from the walk target the courier is considered arrived. */
 const ARRIVE_EPSILON = 0.12;
@@ -74,6 +72,10 @@ function findZoneUnderPlayer(x, z) {
  * which zone they are standing in for the enter prompt to offer.
  */
 const Player = ({ isTouch = false }) => {
+  // The courier is dressed by the world they are standing in — a near-black
+  // suit with cyan trim reads as a silhouette cut out of a porcelain floor.
+  const VIOLET = PALETTE.courier.cloak;
+  const CYAN = PALETTE.courier.visor;
   const groupRef = useRef(null);
   const bodyRef = useRef(null);
   const legLeftRef = useRef(null);
@@ -103,8 +105,8 @@ const Player = ({ isTouch = false }) => {
   // only notice once it is shipped.
   const materials = useMemo(
     () => ({
-      shell: { color: '#1b1526', metalness: 0.45, roughness: 0.42 },
-      trim: { color: '#2c2140', metalness: 0.5, roughness: 0.35 },
+      shell: { color: PALETTE.courier.shell, metalness: 0.45, roughness: 0.42 },
+      trim: { color: PALETTE.courier.trim, metalness: 0.5, roughness: 0.35 },
     }),
     []
   );
@@ -362,8 +364,16 @@ const Player = ({ isTouch = false }) => {
        the offer and approachZone() runs on their confirmation. */
     if (!canWalk) {
       setNearZone(null);
+      setNearPortal(false);
       return;
     }
+
+    // The gate gets a generous radius. It is one object on a wide apron with
+    // nothing else near it, and having to find an exact spot to stand on to
+    // leave a world would be a puzzle nobody asked for.
+    const pdx = player.position.x - WORLD_PORTAL.position[0];
+    const pdz = player.position.z - WORLD_PORTAL.position[2];
+    setNearPortal(Math.hypot(pdx, pdz) < 4.6);
 
     const near = findZoneUnderPlayer(player.position.x, player.position.z);
 

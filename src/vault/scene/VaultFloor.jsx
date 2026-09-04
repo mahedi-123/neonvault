@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
 import { WORLD_CENTER, WORLD_RADIUS, zones } from '../zoneConfig';
 
-const VIOLET = '#8b5cf6';
-const CYAN = '#22d3ee';
 
 /**
  * The vault's ground.
@@ -23,7 +21,11 @@ const SPOKE_COUNT = 16;
 /** Ring roads, matched to the district ring radii in zoneConfig. */
 const RING_ROADS = [12, 24];
 
-const VaultFloor = ({ isTouch = false }) => {
+const VaultFloor = ({ isTouch, palette }) => {
+  const VIOLET = palette.floor.ring;
+  const CYAN = palette.floor.grid;
+  const STRUCT = palette.structure;
+
   const [cx, cz] = WORLD_CENTER;
 
   const rings = useMemo(() => {
@@ -86,14 +88,14 @@ const VaultFloor = ({ isTouch = false }) => {
       {/* Base disc */}
       <mesh position={[cx, -0.06, cz]}>
         <cylinderGeometry args={[WORLD_RADIUS + 3, WORLD_RADIUS + 3, 0.4, 84]} />
-        <meshStandardMaterial color="#191634" metalness={0.3} roughness={0.7} />
+        <meshStandardMaterial color={STRUCT.deep} metalness={0.3} roughness={0.7} />
       </mesh>
 
       {/* Walkable inlay — a shade lighter than the base so the playable area
           is legible as a distinct surface from the ground camera. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.145, cz]}>
         <circleGeometry args={[WORLD_RADIUS, 84]} />
-        <meshStandardMaterial color="#241f47" metalness={0.28} roughness={0.62} />
+        <meshStandardMaterial color={palette.floor.base} metalness={0.28} roughness={0.62} />
       </mesh>
 
       {/* Concentric rings; the two district rings are drawn heavier, as roads */}
@@ -103,7 +105,7 @@ const VaultFloor = ({ isTouch = false }) => {
           <mesh key={`ring-${radius}`} rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.16, cz]}>
             <ringGeometry args={[radius - (isRoad ? 0.5 : 0.02), radius + (isRoad ? 0.5 : 0.02), 128]} />
             <meshBasicMaterial
-              color={isRoad ? '#6f5eb0' : '#5b4f85'}
+              color={isRoad ? palette.floor.rim : palette.floor.grid}
               transparent
               opacity={isRoad ? 0.16 : 0.24}
               toneMapped={false}
@@ -127,7 +129,7 @@ const VaultFloor = ({ isTouch = false }) => {
           >
             <planeGeometry args={[0.04, WORLD_RADIUS]} />
             <meshBasicMaterial
-              color="#6355a0"
+              color={palette.floor.grid}
               transparent
               opacity={0.18}
               toneMapped={false}
@@ -206,7 +208,7 @@ const VaultFloor = ({ isTouch = false }) => {
         <group key={`pylon-${pylon.key}`} position={pylon.position}>
           <mesh>
             <boxGeometry args={[0.28, pylon.height, 0.28]} />
-            <meshStandardMaterial color="#241d44" metalness={0.5} roughness={0.5} />
+            <meshStandardMaterial color={STRUCT.edge} metalness={0.5} roughness={0.5} />
           </mesh>
           <mesh position={[0, pylon.height / 2 + 0.04, 0]}>
             <boxGeometry args={[0.36, 0.07, 0.36]} />

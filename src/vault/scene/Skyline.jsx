@@ -10,12 +10,16 @@ import {
 } from 'three';
 import { WORLD_CENTER, WORLD_RADIUS } from '../zoneConfig';
 
-const CX = WORLD_CENTER[0];
-const CZ = WORLD_CENTER[1];
-
-/** Where the city starts and stops. Well clear of the barrier at R+1.2. */
-const INNER = WORLD_RADIUS + 12;
-const OUTER = WORLD_RADIUS + 80;
+/**
+ * Where the city starts and stops, relative to whichever world is active.
+ *
+ * These used to be module constants. That was correct while there was one
+ * world and quietly wrong the moment there were three: a module evaluates
+ * once, so the cosmetics world would have been given the tech world's centre
+ * and a skyline eighty units from the wrong place. Everything here is
+ * derived per render instead.
+ */
+const cityBand = (radius) => ({ inner: radius + 12, outer: radius + 80 });
 
 /**
  * Deterministic pseudo-random. The city has to be identical on every load —
@@ -65,6 +69,7 @@ const BUILDING_FRAG = /* glsl */ `
   uniform vec3 uWinA;
   uniform vec3 uWinB;
   uniform vec3 uHaze;
+  uniform float uGlow;
 
   varying vec2 vFacade;
   varying float vSeed;
@@ -114,7 +119,7 @@ const BUILDING_FRAG = /* glsl */ `
 
       vec3 glass = mix(uWinA, uWinB, hash(id.yx + vSeed * 11.0));
       col = mix(col, glass, lit * 0.9);
-      col += glass * lit * 0.55;
+      col += glass * lit * uGlow;
     }
 
     // Own distance haze rather than scene fog: the city sits far past the
@@ -172,6 +177,7 @@ const GROUND_FRAG = /* glsl */ `
   uniform vec3 uNear;
   uniform vec3 uHaze;
   uniform vec2 uCenter;
+  uniform vec3 uRoad;
   varying vec3 vWorldPos;
 
   void main() {
@@ -184,7 +190,9 @@ const GROUND_FRAG = /* glsl */ `
     // an empty apron.
     float spokes = smoothstep(0.97, 1.0, cos(a * 18.0));
     float rings = smoothstep(0.90, 1.0, cos(r * 0.55 - uTime * 0.25));
-    vec3 col = uNear + vec3(0.05, 0.16, 0.22) * spokes * 0.5 + vec3(0.10, 0.05, 0.20) * rings * 0.35;
+    // The slip-roads take the world's own grid colour, so a daylight world
+    // gets pale paving rather than the tech world's cyan strip lighting.
+    vec3 col = mix(uNear, uRoad, spokes * 0.42 + rings * 0.22);
 
     // The plate brightens as it runs under the city — the glow a built-up
     // area throws onto its own streets. It is also what gives the towers a
@@ -203,13 +211,13 @@ const GROUND_FRAG = /* glsl */ `
  * would, because motion at that distance is the only cue that survives the
  * haze.
  */
-const AirTraffic = ({ radius, height, speed, offset, color, length: len }) => {
+const AirTraffic = ({ radius, height, speed, offset, color, length: len, cx, cz }) => {
   const ref = useRef(null);
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
     const t = clock.elapsedTime * speed + offset;
-    ref.current.position.set(CX + Math.cos(t) * radius, height + Math.sin(t * 2.1) * 1.2, CZ + Math.sin(t) * radius);
+    ref.current.position.set(cx + Math.cos(t) * radius, height + Math.sin(t * 2.1) * 1.2, cz + Math.sin(t) * radius);
     ref.current.rotation.y = -t + Math.PI / 2;
   });
 
@@ -234,7 +242,11 @@ const AirTraffic = ({ radius, height, speed, offset, color, length: len }) => {
  * no shadows, no per-building React state. Nothing here is interactive and
  * nothing here is collidable — the player can never get near it.
  */
-const Skyline = ({ isTouch = false, lite = false }) => {
+const Skyline = ({ isTouch = false, lite = false, palette }) => {
+  // Per render, from whichever world is active — see cityBand above.
+  const CX = WORLD_CENTER[0];
+  const CZ = WORLD_CENTER[1];
+  const { inner: INNER, outer: OUTER } = cityBand(WORLD_RADIUS);
   const buildingsRef = useRef(null);
   const beaconsRef = useRef(null);
   const buildingMat = useRef(null);
@@ -308,17 +320,21 @@ const Skyline = ({ isTouch = false, lite = false }) => {
     }
 
     return { matrices: out, scales: sc, seeds: sd, beaconMatrices: bm, beaconSeeds: bs };
-  }, [count, beaconCount]);
+  }, [count, beaconCount, CX, CZ, INNER, OUTER]);
 
   const buildingUniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uWall: { value: new Color('#2b2058') },
-      uWinA: { value: new Color('#22d3ee') },
-      uWinB: { value: new Color('#b98cff') },
-      uHaze: { value: new Color('#2a1e52') },
+      uWall: { value: new Color(palette.city.wall) },
+      uWinA: { value: new Color(palette.city.windowA) },
+      uWinB: { value: new Color(palette.city.windowB) },
+      uHaze: { value: new Color(palette.city.haze) },
+      // A lit window on a pale facade has to darken it, not add to it —
+      // additive glow on near-white is invisible. This is the one number
+      // that decides whether a daylight city reads as a city at all.
+      uGlow: { value: palette.scheme === 'light' ? -0.55 : 0.55 },
     }),
-    []
+    [palette]
   );
 
   const beaconUniforms = useMemo(
@@ -329,11 +345,12 @@ const Skyline = ({ isTouch = false, lite = false }) => {
   const groundUniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uNear: { value: new Color('#1b1440') },
-      uHaze: { value: new Color('#2a1e52') },
+      uNear: { value: new Color(palette.city.ground) },
+      uHaze: { value: new Color(palette.city.haze) },
       uCenter: { value: [CX, CZ] },
+      uRoad: { value: new Color(palette.floor.grid) },
     }),
-    []
+    [palette, CX, CZ]
   );
 
   useLayoutEffect(() => {
@@ -406,13 +423,13 @@ const Skyline = ({ isTouch = false, lite = false }) => {
           to go where there isn't. */}
       {!isTouch && !lite && (
         <>
-          <AirTraffic radius={58} height={17} speed={0.10} offset={0.0} color="#67e8f9" length={2.6} />
-          <AirTraffic radius={74} height={24} speed={-0.07} offset={2.1} color="#d8b4fe" length={3.4} />
-          <AirTraffic radius={47} height={13} speed={0.14} offset={4.4} color="#fda4af" length={2.0} />
+          <AirTraffic radius={58} height={17} speed={0.10} offset={0.0} color={palette.city.windowA} length={2.6} cx={CX} cz={CZ} />
+          <AirTraffic radius={74} height={24} speed={-0.07} offset={2.1} color={palette.city.windowB} length={3.4} cx={CX} cz={CZ} />
+          <AirTraffic radius={47} height={13} speed={0.14} offset={4.4} color={palette.city.beacon} length={2.0} cx={CX} cz={CZ} />
         </>
       )}
       {isTouch && !lite && (
-        <AirTraffic radius={62} height={19} speed={0.10} offset={0.6} color="#67e8f9" length={3.0} />
+        <AirTraffic radius={62} height={19} speed={0.10} offset={0.6} color={palette.city.windowA} length={3.0} cx={CX} cz={CZ} />
       )}
     </group>
   );

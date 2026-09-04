@@ -4,10 +4,11 @@ import { WORLD_CENTER, WORLD_RADIUS, zones } from '../zoneConfig';
 import { player, walkToZone } from '../state/playerStore';
 import { useVaultStore } from '../state/vaultStore';
 
-const [CX, CZ] = WORLD_CENTER;
+/* Read per render, never captured at module scope: the module evaluates once
+   and the active world changes underneath it. */
 
 /** World (x, z) → the map's -1..1 viewBox. */
-const toMap = (x, z) => [(x - CX) / WORLD_RADIUS, (z - CZ) / WORLD_RADIUS];
+const toMap = (x, z) => [(x - WORLD_CENTER[0]) / WORLD_RADIUS, (z - WORLD_CENTER[1]) / WORLD_RADIUS];
 
 /**
  * The floor plan. Two jobs: tell the player where they are on a floor whose

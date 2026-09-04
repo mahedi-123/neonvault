@@ -1,8 +1,8 @@
 /**
- * Layout invariants for the vault floor.
+ * Layout invariants, for every world.
  *
- * The walkable world only works if a few geometric properties hold, and all
- * of them are easy to break by nudging a single number in zoneConfig.js:
+ * A walkable world only works if a few geometric properties hold, and all of
+ * them are easy to break by nudging a single number in a world's layout:
  *
  *   1. Every district's own approach mark must be the nearest trigger
  *      radius — measured as distance / triggerRadius, which is exactly what
@@ -14,90 +14,119 @@
  *      disc, or the player is clamped short of a mark they can see.
  *   4. The spawn point must not sit in any trigger radius, or the tour
  *      opens an exhibit before the player has taken a step.
+ *   5. The travel gate must stand inside the disc and clear of every
+ *      district — it has its own proximity prompt, and a gate overlapping an
+ *      exhibit would make the two fight over the same patch of floor.
+ *
+ * Checked for all three worlds rather than whichever one happens to be
+ * active: adding a world is a config change, and a config change that
+ * silently breaks its own layout is the whole reason this file exists.
  *
  * Run with:  node scripts/check-zones.mjs
  */
-import {
-  PLAYER_SPAWN,
-  WORLD_CENTER,
-  WORLD_RADIUS,
-  zones,
-} from '../src/vault/zoneConfig.js';
+import { WORLDS } from '../src/vault/worlds/index.js';
 
-const problems = [];
 const dist = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
 
-/** The district whose territory a point is deepest inside — Player.jsx's rule. */
-function zoneUnder(x, z) {
-  let best = null;
-  let bestScore = Infinity;
-  for (const zone of zones) {
-    const score = dist(x, z, zone.position[0], zone.position[2]) / zone.triggerRadius;
-    if (score <= 1 && score < bestScore) {
-      bestScore = score;
-      best = zone;
+/** Radius the gate occupies for the purposes of keeping clear of exhibits. */
+const PORTAL_CLEARANCE = 4.6;
+
+let failed = 0;
+
+for (const world of WORLDS) {
+  const problems = [];
+  const { zones, center, radius, spawn, portal } = world;
+
+  /** The district whose territory a point is deepest inside — Player.jsx's rule. */
+  const zoneUnder = (x, z) => {
+    let best = null;
+    let bestScore = Infinity;
+    for (const zone of zones) {
+      const score = dist(x, z, zone.position[0], zone.position[2]) / zone.triggerRadius;
+      if (score <= 1 && score < bestScore) {
+        bestScore = score;
+        best = zone;
+      }
     }
-  }
-  return best;
-}
-
-console.log(`world: centre [${WORLD_CENTER}] radius ${WORLD_RADIUS}, ${zones.length} districts\n`);
-
-for (const zone of zones) {
-  const [ax, az] = zone.approach;
-
-  // 1. own approach mark resolves to itself
-  const under = zoneUnder(ax, az);
-  if (!under) {
-    problems.push(`${zone.id}: approach mark is outside its own trigger radius`);
-  } else if (under.id !== zone.id) {
-    problems.push(`${zone.id}: approach mark resolves to ${under.id}`);
-  }
-
-  // 3. mark and platform inside the disc
-  const markOut = dist(ax, az, WORLD_CENTER[0], WORLD_CENTER[1]);
-  if (markOut > WORLD_RADIUS) {
-    problems.push(`${zone.id}: approach mark ${markOut.toFixed(1)} from centre, past the ${WORLD_RADIUS} edge`);
-  }
-  const platformOut =
-    dist(zone.position[0], zone.position[2], WORLD_CENTER[0], WORLD_CENTER[1]) +
-    zone.platformRadius;
-  if (platformOut > WORLD_RADIUS) {
-    problems.push(`${zone.id}: platform reaches ${platformOut.toFixed(1)}, past the ${WORLD_RADIUS} edge`);
-  }
+    return best;
+  };
 
   console.log(
-    `  ${zone.index.toString().padStart(2)} ${zone.label.padEnd(16)} ` +
-      `pos [${zone.position[0].toFixed(1)}, ${zone.position[2].toFixed(1)}]  ` +
-      `trigger ${zone.triggerRadius.toFixed(1)}  ` +
-      `${zone.comingSoon ? 'coming soon' : `${zone.getProducts().length} products`}`
+    `\n=== ${world.label} (${world.id}) — centre [${center}] radius ${radius}, ${zones.length} districts ===`
   );
-}
 
-// 2. no two trigger radii overlap
-for (let i = 0; i < zones.length; i += 1) {
-  for (let j = i + 1; j < zones.length; j += 1) {
-    const a = zones[i];
-    const b = zones[j];
-    const d = dist(a.position[0], a.position[2], b.position[0], b.position[2]);
-    const sum = a.triggerRadius + b.triggerRadius;
-    if (d < sum) {
+  for (const zone of zones) {
+    const [ax, az] = zone.approach;
+
+    // 1. The mark must resolve to its own district.
+    const resolved = zoneUnder(ax, az);
+    if (!resolved) {
+      problems.push(`${zone.id}: approach mark is outside every trigger radius`);
+    } else if (resolved.id !== zone.id) {
+      problems.push(`${zone.id}: approach mark resolves to ${resolved.id}`);
+    }
+
+    // 3. Marks and platforms inside the disc.
+    const markOut = dist(ax, az, center[0], center[1]);
+    if (markOut > radius) {
+      problems.push(`${zone.id}: approach mark ${markOut.toFixed(1)} from centre, past the ${radius} edge`);
+    }
+    const platformOut = dist(zone.position[0], zone.position[2], center[0], center[1]) + zone.platformRadius;
+    if (platformOut > radius) {
+      problems.push(`${zone.id}: platform reaches ${platformOut.toFixed(1)}, past the ${radius} edge`);
+    }
+
+    // 5. The gate keeps out of every district.
+    const gateGap = dist(portal.position[0], portal.position[2], zone.position[0], zone.position[2]);
+    const needed = zone.triggerRadius + PORTAL_CLEARANCE;
+    if (gateGap < needed) {
       problems.push(
-        `${a.id} / ${b.id}: trigger radii overlap (${d.toFixed(1)} apart, need ${sum.toFixed(1)})`
+        `${zone.id}: travel gate is ${gateGap.toFixed(1)} away, needs ${needed.toFixed(1)}`
       );
     }
+
+    console.log(
+      `  ${String(zone.index).padStart(2)} ${zone.label.padEnd(16)} pos [${zone.position[0].toFixed(1)}, ${zone.position[2].toFixed(1)}]  trigger ${zone.triggerRadius.toFixed(1)}  ${zone.comingSoon ? 'coming soon' : `${zone.getProducts().length} products`}`
+    );
+  }
+
+  // 2. No two trigger radii may overlap.
+  for (let i = 0; i < zones.length; i += 1) {
+    for (let j = i + 1; j < zones.length; j += 1) {
+      const a = zones[i];
+      const b = zones[j];
+      const gap = dist(a.position[0], a.position[2], b.position[0], b.position[2]);
+      const overlap = a.triggerRadius + b.triggerRadius;
+      if (gap < overlap) {
+        problems.push(
+          `${a.id} and ${b.id} triggers overlap: ${gap.toFixed(1)} apart, radii sum ${overlap.toFixed(1)}`
+        );
+      }
+    }
+  }
+
+  // 4. Spawn stands in open floor.
+  const spawnZone = zoneUnder(spawn[0], spawn[2]);
+  if (spawnZone) problems.push(`spawn stands inside ${spawnZone.id}'s trigger radius`);
+  const spawnOut = dist(spawn[0], spawn[2], center[0], center[1]);
+  if (spawnOut > radius) problems.push(`spawn is ${spawnOut.toFixed(1)} from centre, outside the disc`);
+
+  // 5b. And the gate itself is on the floor.
+  const gateOut = dist(portal.position[0], portal.position[2], center[0], center[1]);
+  if (gateOut > radius) problems.push(`travel gate is ${gateOut.toFixed(1)} from centre, past the ${radius} edge`);
+
+  if (problems.length) {
+    failed += 1;
+    console.log('\n  PROBLEMS:');
+    for (const p of problems) console.log(`    ✗ ${p}`);
+  } else {
+    console.log(
+      `\n  ✓ all invariants hold (spawn ${spawnOut.toFixed(1)} from centre, gate ${gateOut.toFixed(1)})`
+    );
   }
 }
 
-// 4. spawn is clear
-const spawnZone = zoneUnder(PLAYER_SPAWN[0], PLAYER_SPAWN[2]);
-if (spawnZone) problems.push(`spawn sits inside ${spawnZone.id}'s trigger radius`);
-const spawnOut = dist(PLAYER_SPAWN[0], PLAYER_SPAWN[2], WORLD_CENTER[0], WORLD_CENTER[1]);
-if (spawnOut > WORLD_RADIUS) problems.push(`spawn is ${spawnOut.toFixed(1)} from centre, outside the disc`);
-
-console.log('');
-if (problems.length) {
-  for (const p of problems) console.error(`FAIL  ${p}`);
-  process.exit(1);
-}
-console.log(`all layout invariants hold (spawn ${spawnOut.toFixed(1)} from centre)`);
+console.log(
+  failed ? `\n${failed} world(s) FAILED\n` : `\nall ${WORLDS.length} worlds pass\n`
+);
+process.exit(failed ? 1 : 0);

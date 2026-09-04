@@ -11,6 +11,8 @@ import IntroDialog from './IntroDialog';
 import Minimap from './Minimap';
 import EnterPrompt from './EnterPrompt';
 import ControlPicker from './ControlPicker';
+import WorldGate from './WorldGate';
+import TeleportVeil from './TeleportVeil';
 import SteerPad from './SteerPad';
 
 /**
@@ -117,6 +119,8 @@ const VaultOverlayUI = ({ isTouch = false }) => {
       <ZonePanel />
       <SteerPad />
       <ControlPicker isTouch={isTouch} />
+      <WorldGate />
+      <TeleportVeil />
     </div>
   );
 };

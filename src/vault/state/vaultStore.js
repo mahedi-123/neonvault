@@ -12,6 +12,7 @@ import { useSyncExternalStore } from 'react';
  *   'diving'    — an exhibit was triggered, camera is moving onto it
  *   'zone'      — camera settled, exhibition panel open
  *   'returning' — camera easing back onto the player's shoulder
+ *   'gate'      — the world picker is up; no world is loaded behind it yet
  *
  * Reads inside useFrame should call getSnapshot() directly (no subscription,
  * no re-render). Reads that drive DOM/JSX should go through useVaultStore().
@@ -25,7 +26,7 @@ export const INTRO_STEPS = [
 ];
 
 const initialState = {
-  mode: 'entering',
+  mode: 'gate',
   introStep: 0,
   hoveredZoneId: null,
   activeZoneId: null,
@@ -39,6 +40,11 @@ const initialState = {
    * proximity now only offers, and the player confirms.
    */
   nearZoneId: null,
+  /**
+   * True while the courier is standing at the travel gate. Same contract as
+   * nearZoneId: proximity only ever *offers*, and the player confirms.
+   */
+  nearPortal: false,
 };
 
 let state = { ...initialState };
@@ -74,6 +80,35 @@ export function setNearZone(id) {
   setState({ nearZoneId: id });
 }
 
+export function setNearPortal(near) {
+  if (state.nearPortal === near) return;
+  setState({ nearPortal: near });
+}
+
+
+/** The player picked a world at the gate. The establishing shot runs next. */
+export function beginWorld() {
+  setState({ mode: 'entering', introStep: 0, nearZoneId: null, nearPortal: false });
+}
+
+/**
+ * Arrived somewhere by gate. Straight to free roam — no establishing shot and
+ * no briefing.
+ *
+ * The first entry into a world gets the cinematic because it is the first
+ * thing you ever see. A teleport does not: you have just watched a gate wind
+ * up, a flash, and the name of where you landed, and following that with a
+ * slow orbit and four lines of guide copy every single time you use a door
+ * would be exhausting.
+ */
+export function arriveInWorld() {
+  setState({ mode: 'overview', introStep: 0, nearZoneId: null, nearPortal: false, activeZoneId: null });
+}
+
+/** Back to the picker — from the in-world gate, or on a fresh visit. */
+export function openGate() {
+  setState({ mode: 'gate', nearZoneId: null, nearPortal: false, activeZoneId: null });
+}
 
 /** Establishing shot finished — hand over to the guide. */
 export function beginIntro() {

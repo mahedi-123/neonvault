@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { clearKeys, keys } from '../state/playerStore';
-import { approachZone, getSnapshot, nextIntroStep, startReturn } from '../state/vaultStore';
+import { approachZone, beginWorld, getSnapshot, nextIntroStep, openGate, startReturn } from '../state/vaultStore';
+import { getWorldState } from '../state/worldStore';
 
 /** Physical-key codes, not e.key — so the controls stay in the same place on
  *  AZERTY and Dvorak layouts, where e.key for the W position is 'z' or ','. */
@@ -41,10 +42,13 @@ export function useVaultKeyboard() {
       if (isTypingTarget(e.target)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      const { mode, nearZoneId } = getSnapshot();
+      const { mode, nearZoneId, nearPortal } = getSnapshot();
 
       if (e.code === 'KeyE' || e.code === 'Enter') {
-        if (mode === 'overview' && nearZoneId) {
+        if (mode === 'overview' && nearPortal) {
+          e.preventDefault();
+          openGate();
+        } else if (mode === 'overview' && nearZoneId) {
           e.preventDefault();
           approachZone(nearZoneId);
         } else if (mode === 'intro') {
@@ -58,6 +62,11 @@ export function useVaultKeyboard() {
         if (mode === 'zone' || mode === 'diving') {
           e.preventDefault();
           startReturn();
+        } else if (mode === 'gate' && getWorldState().worldId) {
+          // Backing out of the picker only makes sense once there is a world
+          // behind it to back out into. At the very first gate there is not.
+          e.preventDefault();
+          beginWorld();
         }
         return;
       }

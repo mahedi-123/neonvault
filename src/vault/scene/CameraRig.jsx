@@ -6,9 +6,11 @@ import {
   FOLLOW,
   MOBILE_ENTRY_POSE,
   MOBILE_FOLLOW,
+  WORLD_PORTAL,
   getZoneById,
 } from '../zoneConfig';
 import { cameraRig, player, pointerState } from '../state/playerStore';
+import { getWorldState } from '../state/worldStore';
 import { arrive, beginIntro, getSnapshot, settleOverview } from '../state/vaultStore';
 
 /** How long after a drag the rig leaves the player's chosen bearing alone. */
@@ -158,6 +160,26 @@ const CameraRig = ({ isTouch }) => {
     lookRef.current.x = MathUtils.damp(lookRef.current.x, desiredLook.x, lambda, dt);
     lookRef.current.y = MathUtils.damp(lookRef.current.y, desiredLook.y, lambda, dt);
     lookRef.current.z = MathUtils.damp(lookRef.current.z, desiredLook.z, lambda, dt);
+
+    /* ---------- teleport push ----------
+       While the gate is charging, the camera drifts toward it and turns to
+       look through it. Applied AFTER the normal damping rather than by
+       changing the target pose, so none of the follow rig's own arrival
+       logic can see it — travel only ever starts from 'overview', where that
+       logic is idle anyway, and layering it this way means a cancelled
+       teleport just stops pushing rather than leaving the rig somewhere it
+       has to unwind from. */
+    const travel = getWorldState().travel;
+    if (travel === 'charging' || travel === 'flash') {
+      const gate = WORLD_PORTAL.position;
+      const pull = Math.min(1, dt * 1.8);
+      camera.position.x += (gate[0] - camera.position.x) * pull * 0.5;
+      camera.position.y += (2.6 - camera.position.y) * pull * 0.5;
+      camera.position.z += (gate[2] - camera.position.z) * pull * 0.5;
+      lookRef.current.x += (gate[0] - lookRef.current.x) * pull;
+      lookRef.current.y += (2.6 - lookRef.current.y) * pull;
+      lookRef.current.z += (gate[2] - lookRef.current.z) * pull;
+    }
 
     lookAt.copy(lookRef.current);
     camera.lookAt(lookAt);

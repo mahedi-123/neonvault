@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { ENTRY_POSE, MOBILE_ENTRY_POSE } from '../zoneConfig';
+import { Canvas, useThree } from '@react-three/fiber';
+import { ENTRY_POSE, MOBILE_ENTRY_POSE, PALETTE } from '../zoneConfig';
 import VaultSky from './VaultSky';
 import VaultFloor from './VaultFloor';
 import Skyline from './Skyline';
@@ -10,6 +10,7 @@ import ZoneField from './ZoneField';
 import WalkGround from './WalkGround';
 import Player from './Player';
 import CameraRig from './CameraRig';
+import Portal from './Portal';
 import QualityGovernor from './QualityGovernor';
 
 /**
@@ -40,7 +41,25 @@ import QualityGovernor from './QualityGovernor';
  *      QualityGovernor free to cap it further if the frame rate still
  *      disagrees.
  */
-const VaultCanvas = ({ isTouch = false, lite = false, onContextLost }) => {
+/**
+ * Tone mapping is a per-world setting, and the renderer outlives the world.
+ *
+ * It used to be set once in onCreated, which was fine when the canvas was
+ * destroyed and rebuilt for every world — and that turned out to be the
+ * wrong design (see the group key below), so it moved here.
+ */
+const Exposure = ({ value }) => {
+  const gl = useThree((state) => state.gl);
+  useEffect(() => {
+    gl.toneMappingExposure = value;
+  }, [gl, value]);
+  return null;
+};
+
+const VaultCanvas = ({ isTouch = false, lite = false, worldId, onContextLost }) => {
+  // Read once per render rather than captured at module scope: PALETTE is a
+  // live binding that re-points when the player travels.
+  const palette = PALETTE;
   const [frameloop, setFrameloop] = useState(document.hidden ? 'never' : 'always');
   const entryPose = isTouch ? MOBILE_ENTRY_POSE : ENTRY_POSE;
 
@@ -68,7 +87,6 @@ const VaultCanvas = ({ isTouch = false, lite = false, onContextLost }) => {
       // pixels in. See index.css.
       className="vault-canvas !fixed inset-0"
       onCreated={({ gl }) => {
-        gl.toneMappingExposure = 1.3;
         gl.domElement.addEventListener('webglcontextlost', (e) => {
           e.preventDefault();
           onContextLost?.();
@@ -76,10 +94,22 @@ const VaultCanvas = ({ isTouch = false, lite = false, onContextLost }) => {
       }}
     >
       <QualityGovernor maxDpr={maxDpr} />
+      <Exposure value={palette.exposure} />
+
+      {/* Keyed on the world, so travelling rebuilds every light, mesh and
+          shader below it — but NOT the <Canvas> itself.
+
+          Unmounting the canvas was the obvious way to do this and it was
+          wrong twice over: the browser fires webglcontextlost on teardown,
+          which this component's own error path correctly reads as a crashed
+          renderer (so the first teleport dropped the player into the DOM
+          fallback), and every trip would have burned a fresh WebGL context,
+          which browsers hand out only a handful of. */}
+      <group key={worldId}>
 
       {/* Fallback clear colour, matched to the sky's horizon band so a frame
           rendered before the dome is ready doesn't flash black. */}
-      <color attach="background" args={['#191140']} />
+      <color attach="background" args={[palette.background]} />
       {/* Thinned right down along with the world's growth. At the old
           density the far side of a 62-unit-wide floor was solid fog — you
           could not see a district until you were nearly standing in it,
@@ -88,25 +118,41 @@ const VaultCanvas = ({ isTouch = false, lite = false, onContextLost }) => {
           the city went in outside the barrier: at 0.0085 the nearest towers
           were already half-dissolved, which defeats the point of putting
           something out there to look at. */}
-      <fogExp2 attach="fog" args={['#2a1e52', 0.0062]} />
+      <fogExp2 attach="fog" args={[palette.fog.color, palette.fog.density]} />
 
-      <VaultSky lite={lite} />
+      <VaultSky lite={lite} palette={palette} />
       {/* Everything past the walkable floor: the city, the plate it stands
           on, and the shield that marks where you have to stop. Drawn before
           the districts so the transparent shield sorts against a backdrop
           that is already there. */}
-      <Skyline isTouch={isTouch} lite={lite} />
+      <Skyline isTouch={isTouch} lite={lite} palette={palette} />
 
       {/* Fill — soft ambient so nothing goes fully black. The ground half is
           a lit teal rather than near-black: it is what stops the underside
           of every object reading as a hole in the floor. Turned up on lite,
           where it is standing in for every per-district light as well. */}
-      <hemisphereLight args={['#9484d8', '#1e3149', lite ? 1.75 : 1.15]} />
+      <hemisphereLight
+        args={[
+          palette.lights.hemiSky,
+          palette.lights.hemiGround,
+          // Lite has no per-district lights at all, so the ambient has to
+          // stand in for forty of them.
+          palette.lights.hemiIntensity * (lite ? 1.5 : 1),
+        ]}
+      />
       {/* Key — the dominant light, defines the main highlight direction */}
-      <directionalLight position={[7, 14, 8]} intensity={lite ? 1.35 : 1.0} color="#d8cbff" />
+      <directionalLight
+        position={[7, 14, 8]}
+        intensity={palette.lights.keyIntensity * (lite ? 1.35 : 1)}
+        color={palette.lights.keyColor}
+      />
       {/* Rim — behind the districts (far -Z), backlights every silhouette so
           dark objects separate from the backdrop */}
-      <directionalLight position={[-4, 12, -46]} intensity={lite ? 1.05 : 0.85} color="#9fe1f2" />
+      <directionalLight
+        position={[-4, 12, -46]}
+        intensity={palette.lights.rimIntensity * (lite ? 1.25 : 1)}
+        color={palette.lights.rimColor}
+      />
       {/* Two broad, very soft washes standing in for bounce off the floor —
           cheaper than any global-illumination pass and enough to keep the
           middle of the disc from falling away between the lit pools. Cheap
@@ -114,18 +160,20 @@ const VaultCanvas = ({ isTouch = false, lite = false, onContextLost }) => {
           shader, for an effect the raised hemisphere already approximates. */}
       {!lite && (
         <>
-          <pointLight position={[0, 9, 10]} intensity={0.5} color="#22d3ee" distance={60} decay={1.6} />
-          <pointLight position={[0, 9, -34]} intensity={0.45} color="#8b5cf6" distance={60} decay={1.6} />
+          <pointLight position={[0, 9, 10]} intensity={0.5} color={palette.accentSecondary} distance={60} decay={1.6} />
+          <pointLight position={[0, 9, -34]} intensity={0.45} color={palette.accent} distance={60} decay={1.6} />
         </>
       )}
 
-      <VaultFloor isTouch={isTouch} />
+      <VaultFloor isTouch={isTouch} palette={palette} />
       <WorldBarrier isTouch={isTouch} lite={lite} />
       <WorldProps isTouch={isTouch} />
       <ZoneField isTouch={isTouch} lite={lite} />
+      <Portal isTouch={isTouch} lite={lite} />
       <WalkGround />
       <Player isTouch={isTouch} />
       <CameraRig isTouch={isTouch} />
+      </group>
     </Canvas>
   );
 };

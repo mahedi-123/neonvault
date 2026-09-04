@@ -5,15 +5,50 @@ import { AdditiveBlending, CanvasTexture, DoubleSide, MathUtils } from 'three';
 import { cn } from '../../utils/helpers';
 import { getSnapshot, setHovered, useVaultStore } from '../state/vaultStore';
 import { pointerState, walkToZone } from '../state/playerStore';
-import { zones } from '../zoneConfig';
+import { PALETTE, zones } from '../zoneConfig';
+import {
+  BrushesGeometry,
+  FragranceGeometry,
+  LipstickGeometry,
+  MirrorGeometry,
+  SerumGeometry,
+} from './geometry/cosmetics';
+import {
+  BagsGeometry,
+  FootwearGeometry,
+  RailGeometry,
+  RunwayGeometry,
+  StackGeometry,
+} from './geometry/apparel';
 
-const VIOLET = '#8b5cf6';
-const CYAN = '#22d3ee';
-const ACCENT_HEX = { violet: VIOLET, cyan: CYAN, mixed: VIOLET };
+/**
+ * Every exhibit's two working colours, read live from the active world.
+ *
+ * These were module constants while there was one world. They cannot be now:
+ * a module evaluates once, and the daylight worlds would have been drawn in
+ * the tech world's violet and cyan. `tones()` is called inside each render
+ * instead — PALETTE is a live ES-module binding that re-points on travel.
+ */
+const tones = () => ({
+  P: PALETTE,
+  VIOLET: PALETTE.accent,
+  CYAN: PALETTE.accentSecondary,
+});
+
+/**
+ * A district names its accent by role, not by hex, so the same layout reads
+ * correctly in any world: 'violet', 'rose' and 'clay' are each their world's
+ * primary; 'cyan', 'gold' and 'sage' are each world's secondary.
+ */
+const PRIMARY_ACCENTS = new Set(['violet', 'rose', 'clay', 'mixed']);
+const accentFor = (key, palette) =>
+  PRIMARY_ACCENTS.has(key) ? palette.accent : palette.accentSecondary;
 const LABEL_HEIGHT = {
   core: 7.8, audio: 4.2, gaming: 3.5, vault: 4.15,
   computing: 3.4, wearables: 3.9, smarthome: 3.0, newdrops: 4.2,
   handhelds: 3.9, vision: 4.3, power: 4.0, creator: 4.2, drones: 4.0,
+  mirror: 6.2, lipstick: 3.2, serum: 3.4, fragrance: 3.3, brushes: 3.4,
+  runway: 4.4, rail: 3.6, stack: 3.0, footwear: 3.2, bags: 3.6,
 };
 /**
  * Approximate top of each variant's own geometry — used only to keep the
@@ -34,6 +69,8 @@ const OBJECT_TOP_HEIGHT = {
   core: 3.7, audio: 2.95, gaming: 2.5, vault: 3.3,
   computing: 2.3, wearables: 3.0, smarthome: 1.7, newdrops: 3.1,
   handhelds: 2.9, vision: 3.2, power: 2.9, creator: 3.4, drones: 2.9,
+  mirror: 5.1, lipstick: 1.8, serum: 2.1, fragrance: 1.9, brushes: 2.1,
+  runway: 2.6, rail: 2.3, stack: 1.9, footwear: 2.0, bags: 2.4,
 };
 
 /**
@@ -129,6 +166,7 @@ const NEAREST_NEIGHBOR_DIST = zones.reduce((acc, a) => {
  * change how neighbouring zones read.
  */
 function CoreGeometry({ factorRef, isTouch, lite = false }) {
+  const { P, VIOLET, CYAN } = tones();
   const spireGroupRef = useRef(null);
   const spireMatRef = useRef(null);
   const glowMatRef = useRef(null);
@@ -173,7 +211,7 @@ function CoreGeometry({ factorRef, isTouch, lite = false }) {
           then plinth, then artifact. */}
       <mesh position={[0, 1.17, 0]}>
         <cylinderGeometry args={[0.42, 0.85, 1.0, 32]} />
-        <meshStandardMaterial ref={pedestalMatRef} color="#0d0c15" metalness={0.6} roughness={0.4} emissive={VIOLET} emissiveIntensity={0.05} />
+        <meshStandardMaterial ref={pedestalMatRef} color="#0d0c15" metalness={0.6} roughness={0.4} emissive={VIOLET} emissiveIntensity={0.05 * P.emissive} />
       </mesh>
       <mesh position={[0, 1.68, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.43, 0.5, 40]} />
@@ -185,7 +223,7 @@ function CoreGeometry({ factorRef, isTouch, lite = false }) {
       <group ref={spireGroupRef} position={[0, 2.62, 0]}>
         <mesh scale={[1, 1.2, 1]}>
           <icosahedronGeometry args={[0.92, 0]} />
-          <meshStandardMaterial ref={spireMatRef} color="#131018" metalness={0.7} roughness={0.28} emissive={VIOLET} emissiveIntensity={0.38} />
+          <meshStandardMaterial ref={spireMatRef} color="#131018" metalness={0.7} roughness={0.28} emissive={VIOLET} emissiveIntensity={0.38 * P.emissive} />
         </mesh>
         <mesh>
           <sphereGeometry args={[0.32, 24, 24]} />
@@ -209,7 +247,7 @@ function CoreGeometry({ factorRef, isTouch, lite = false }) {
                 metalness={0.5}
                 roughness={0.55}
                 emissive={VIOLET}
-                emissiveIntensity={0.02}
+                emissiveIntensity={0.02 * P.emissive}
               />
             </mesh>
             <mesh position={[side * 1.42, 2.9, 0.92]}>
@@ -220,11 +258,11 @@ function CoreGeometry({ factorRef, isTouch, lite = false }) {
         ))}
         <mesh position={[0, 6.4, 0]}>
           <boxGeometry args={[4.7, 1.2, 1.9]} />
-          <meshStandardMaterial ref={lintelMatRef} color="#09080e" metalness={0.5} roughness={0.55} emissive={VIOLET} emissiveIntensity={0.02} />
+          <meshStandardMaterial ref={lintelMatRef} color="#09080e" metalness={0.5} roughness={0.55} emissive={VIOLET} emissiveIntensity={0.02 * P.emissive} />
         </mesh>
         <mesh position={[0, 2.85, -3.35]}>
           <planeGeometry args={[2.6, 3.6]} />
-          <meshStandardMaterial ref={nicheMatRef} color="#0c0b18" metalness={0.15} roughness={0.9} emissive={CYAN} emissiveIntensity={0.08} />
+          <meshStandardMaterial ref={nicheMatRef} color="#0c0b18" metalness={0.15} roughness={0.9} emissive={CYAN} emissiveIntensity={0.08 * P.emissive} />
         </mesh>
       </group>
 
@@ -305,6 +343,7 @@ function CoreGeometry({ factorRef, isTouch, lite = false }) {
 /** AUDIO LAB — studio headphones on a stand, over a live spectrum
  *  analyser, with sound rings washing up from the base. */
 function AudioGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const bandMatRef = useRef(null);
   const cupMatRefs = useRef([]);
   const barRefs = useRef([]);
@@ -396,7 +435,7 @@ function AudioGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.65}
             roughness={0.32}
             emissive={accentColor}
-            emissiveIntensity={0.2}
+            emissiveIntensity={0.2 * P.emissive}
           />
         </mesh>
         {[-1, 1].map((side, i) => (
@@ -411,7 +450,7 @@ function AudioGeometry({ factorRef, accentColor, isTouch = false }) {
                 metalness={0.6}
                 roughness={0.35}
                 emissive={accentColor}
-                emissiveIntensity={0.3}
+                emissiveIntensity={0.3 * P.emissive}
               />
             </mesh>
             {/* Lit driver ring on the outer face of each cup */}
@@ -476,6 +515,7 @@ function AudioGeometry({ factorRef, accentColor, isTouch = false }) {
 /** GAMING — an oversized gamepad hanging in the air, face buttons
  *  firing in sequence like an attract-mode demo. */
 function GamingGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const padRef = useRef(null);
   const bodyMatRefs = useRef([]);
   const buttonMatRefs = useRef([]);
@@ -552,7 +592,7 @@ function GamingGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.7}
             roughness={0.3}
             emissive={accentColor}
-            emissiveIntensity={0.12}
+            emissiveIntensity={0.12 * P.emissive}
           />
         </mesh>
 
@@ -568,7 +608,7 @@ function GamingGeometry({ factorRef, accentColor, isTouch = false }) {
               metalness={0.7}
               roughness={0.3}
               emissive={accentColor}
-              emissiveIntensity={0.12}
+              emissiveIntensity={0.12 * P.emissive}
             />
           </mesh>
         ))}
@@ -646,6 +686,7 @@ function GamingGeometry({ factorRef, accentColor, isTouch = false }) {
 /** VAULT / LIMITED — a bank vault door: rotating lock wheel, dial
  *  rings, and bolts that throw and retract on a slow cycle. */
 function VaultGeometry({ factorRef, accentColor }) {
+  const { P } = tones();
   const doorMatRef = useRef(null);
   const wheelRef = useRef(null);
   const ringMatRefs = useRef([]);
@@ -708,7 +749,7 @@ function VaultGeometry({ factorRef, accentColor }) {
             metalness={0.82}
             roughness={0.2}
             emissive={accentColor}
-            emissiveIntensity={0.12}
+            emissiveIntensity={0.12 * P.emissive}
           />
         </mesh>
 
@@ -744,7 +785,7 @@ function VaultGeometry({ factorRef, accentColor }) {
                   metalness={0.7}
                   roughness={0.3}
                   emissive={accentColor}
-                  emissiveIntensity={0.3}
+                  emissiveIntensity={0.3 * P.emissive}
                 />
               </mesh>
             );
@@ -784,6 +825,7 @@ function VaultGeometry({ factorRef, accentColor }) {
 /** COMPUTING LAB — a workstation: a monitor scrolling code over a
  *  keyboard whose keys ripple as if being typed on. */
 function ComputingGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const screenMatRef = useRef(null);
   const codeRefs = useRef([]);
   const codeMatRefs = useRef([]);
@@ -848,7 +890,7 @@ function ComputingGeometry({ factorRef, accentColor, isTouch = false }) {
           metalness={0.6}
           roughness={0.4}
           emissive={accentColor}
-          emissiveIntensity={0.08}
+          emissiveIntensity={0.08 * P.emissive}
         />
       </mesh>
       {[-1, 1].map((side) => (
@@ -876,7 +918,7 @@ function ComputingGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.75}
             roughness={0.25}
             emissive={accentColor}
-            emissiveIntensity={0.1}
+            emissiveIntensity={0.1 * P.emissive}
           />
         </mesh>
         {/* Screen wash */}
@@ -945,6 +987,7 @@ function ComputingGeometry({ factorRef, accentColor, isTouch = false }) {
  *  heartbeat arc, with one slow gyro halo left over from the old
  *  pedestal for continuity with the rest of the floor. */
 function WearablesGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const haloRef = useRef(null);
   const haloMatRef = useRef(null);
   const caseMatRef = useRef(null);
@@ -1012,7 +1055,7 @@ function WearablesGeometry({ factorRef, accentColor, isTouch = false }) {
               metalness={0.75}
               roughness={0.25}
               emissive={accentColor}
-              emissiveIntensity={0.18}
+              emissiveIntensity={0.18 * P.emissive}
             />
           </mesh>
 
@@ -1079,6 +1122,7 @@ const SMART_HOME_SATS = 3;
 const SMART_HOME_RADIUS = 1.85;
 
 function SmartHomeGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const wallMatRef = useRef(null);
   const roofMatRef = useRef(null);
   const windowMatRefs = useRef([]);
@@ -1149,7 +1193,7 @@ function SmartHomeGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.5}
             roughness={0.45}
             emissive={accentColor}
-            emissiveIntensity={0.08}
+            emissiveIntensity={0.08 * P.emissive}
           />
         </mesh>
 
@@ -1162,7 +1206,7 @@ function SmartHomeGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.55}
             roughness={0.4}
             emissive={accentColor}
-            emissiveIntensity={0.14}
+            emissiveIntensity={0.14 * P.emissive}
           />
         </mesh>
 
@@ -1246,6 +1290,7 @@ function SmartHomeGeometry({ factorRef, accentColor, isTouch = false }) {
  *  touchdown rings washing out across the floor and chevrons running
  *  down the beam. The whole read is "this one just arrived". */
 function NewDropsGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const podRef = useRef(null);
   const podMatRef = useRef(null);
   const beamMatRef = useRef(null);
@@ -1379,7 +1424,7 @@ function NewDropsGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.7}
             roughness={0.26}
             emissive={accentColor}
-            emissiveIntensity={0.3}
+            emissiveIntensity={0.3 * P.emissive}
           />
         </mesh>
         {/* Banding around the pod's waist */}
@@ -1395,6 +1440,7 @@ function NewDropsGeometry({ factorRef, accentColor, isTouch = false }) {
 /** HANDHELDS — a phone standing on a dock with its UI scrolling, a tablet
  *  orbiting alongside it. */
 function HandheldsGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const phoneRef = useRef(null);
   const tabletRef = useRef(null);
   const screenMatRef = useRef(null);
@@ -1463,7 +1509,7 @@ function HandheldsGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.78}
             roughness={0.22}
             emissive={accentColor}
-            emissiveIntensity={0.15}
+            emissiveIntensity={0.15 * P.emissive}
           />
         </mesh>
         <mesh position={[0, 0, 0.05]}>
@@ -1517,7 +1563,7 @@ function HandheldsGeometry({ factorRef, accentColor, isTouch = false }) {
               metalness={0.75}
               roughness={0.25}
               emissive={accentColor}
-              emissiveIntensity={0.14}
+              emissiveIntensity={0.14 * P.emissive}
             />
           </mesh>
           <mesh position={[0, 0, 0.035]}>
@@ -1539,6 +1585,7 @@ function HandheldsGeometry({ factorRef, accentColor, isTouch = false }) {
 /** VISION / XR — a headset on a stand, ringed by holographic panels that
  *  swing around it as if you were wearing the thing. */
 function VisionGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const panelGroupRef = useRef(null);
   const visorMatRef = useRef(null);
   const shellMatRef = useRef(null);
@@ -1590,7 +1637,7 @@ function VisionGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.7}
             roughness={0.3}
             emissive={accentColor}
-            emissiveIntensity={0.16}
+            emissiveIntensity={0.16 * P.emissive}
           />
         </mesh>
         {/* Visor */}
@@ -1647,6 +1694,7 @@ function VisionGeometry({ factorRef, accentColor, isTouch = false }) {
 /** POWER CELL — a charging column whose cell fills, tops out, discharges to
  *  a bank of coils, and starts again. */
 function PowerGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const fillRef = useRef(null);
   const fillMatRef = useRef(null);
   const shellMatRef = useRef(null);
@@ -1711,7 +1759,7 @@ function PowerGeometry({ factorRef, accentColor, isTouch = false }) {
           metalness={0.6}
           roughness={0.3}
           emissive={accentColor}
-          emissiveIntensity={0.12}
+          emissiveIntensity={0.12 * P.emissive}
           side={DoubleSide}
         />
       </mesh>
@@ -1790,6 +1838,7 @@ function PowerGeometry({ factorRef, accentColor, isTouch = false }) {
 /** CREATOR STUDIO — a cinema camera on a tripod inside a ring light, with a
  *  boom mic overhead and a recording tally that blinks. */
 function CreatorGeometry({ factorRef, accentColor, isTouch = false, lite = false }) {
+  const { P } = tones();
   const ringRef = useRef(null);
   const ringMatRef = useRef(null);
   const bodyMatRef = useRef(null);
@@ -1847,7 +1896,7 @@ function CreatorGeometry({ factorRef, accentColor, isTouch = false, lite = false
             metalness={0.7}
             roughness={0.3}
             emissive={accentColor}
-            emissiveIntensity={0.12}
+            emissiveIntensity={0.12 * P.emissive}
           />
         </mesh>
         {/* Lens */}
@@ -1880,7 +1929,7 @@ function CreatorGeometry({ factorRef, accentColor, isTouch = false, lite = false
             metalness={0.5}
             roughness={0.4}
             emissive="#efe6ff"
-            emissiveIntensity={0.55}
+            emissiveIntensity={0.55 * P.emissive}
           />
         </mesh>
         <mesh>
@@ -1914,6 +1963,7 @@ function CreatorGeometry({ factorRef, accentColor, isTouch = false, lite = false
 /** FLIGHT DECK — a quadcopter hovering over a landing pad, rotors spinning,
  *  with pad lights running a landing sequence. */
 function DronesGeometry({ factorRef, accentColor, isTouch = false }) {
+  const { P } = tones();
   const droneRef = useRef(null);
   const rotorRefs = useRef([]);
   const bodyMatRef = useRef(null);
@@ -2019,7 +2069,7 @@ function DronesGeometry({ factorRef, accentColor, isTouch = false }) {
             metalness={0.72}
             roughness={0.28}
             emissive={accentColor}
-            emissiveIntensity={0.18}
+            emissiveIntensity={0.18 * P.emissive}
           />
         </mesh>
         {/* Gimbal camera slung underneath */}
@@ -2088,6 +2138,20 @@ const GEOMETRY_BY_VARIANT = {
   power: PowerGeometry,
   creator: CreatorGeometry,
   drones: DronesGeometry,
+
+  /* AURA LAB */
+  mirror: MirrorGeometry,
+  lipstick: LipstickGeometry,
+  serum: SerumGeometry,
+  fragrance: FragranceGeometry,
+  brushes: BrushesGeometry,
+
+  /* ATELIER */
+  runway: RunwayGeometry,
+  rail: RailGeometry,
+  stack: StackGeometry,
+  footwear: FootwearGeometry,
+  bags: BagsGeometry,
 };
 
 /**
@@ -2110,7 +2174,7 @@ const Zone = ({ config, isTouch, lite = false }) => {
   const hotspotMatRef = useRef(null);
   const factorRef = useRef(0);
 
-  const accentColor = ACCENT_HEX[config.accent] ?? VIOLET;
+  const accentColor = accentFor(config.accent, PALETTE);
   const labelHeight = LABEL_HEIGHT[config.variant] ?? 4;
   const GeometryComponent = GEOMETRY_BY_VARIANT[config.variant];
   // Turn the exhibit to face the mark the player actually walks to.
@@ -2222,13 +2286,18 @@ const Zone = ({ config, isTouch, lite = false }) => {
       // tint is the wrong target: the pool must read as an obvious lit
       // island the instant you look at the overview, not something you have
       // to look for.
-      const cap = isCore ? 1.0 : 0.85;
-      const scale = isCore ? 1.35 : 1.05;
+      // Light worlds take roughly half: the pool is meant to read as the
+      // floor catching the exhibit's light, and at full strength on
+      // porcelain it reads as spilled dye instead.
+      const wash = PALETTE.scheme === 'light' ? 0.5 : 1;
+      const cap = (isCore ? 1.0 : 0.85) * wash;
+      const scale = (isCore ? 1.35 : 1.05) * wash;
       poolMatRef.current.opacity = Math.min(cap, scale * factorRef.current);
     }
     if (haloMatRef.current) {
-      const cap = isCore ? 0.55 : 0.32;
-      const scale = isCore ? 0.7 : 0.42;
+      const wash = PALETTE.scheme === 'light' ? 0.55 : 1;
+      const cap = (isCore ? 0.55 : 0.32) * wash;
+      const scale = (isCore ? 0.7 : 0.42) * wash;
       haloMatRef.current.opacity = Math.min(cap, scale * factorRef.current);
     }
     if (floorLightRef.current) {
@@ -2297,11 +2366,11 @@ const Zone = ({ config, isTouch, lite = false }) => {
             language the different upper structures sit on top of. */}
         <mesh position={[0, 0.05, 0]}>
           <cylinderGeometry args={[config.platformRadius + 0.75, config.platformRadius + 0.95, 0.1, 48]} />
-          <meshStandardMaterial color="#050409" metalness={0.4} roughness={0.65} />
+          <meshStandardMaterial color={PALETTE.dais.base} metalness={0.4} roughness={0.65} />
         </mesh>
         <mesh position={[0, 0.15, 0]}>
           <cylinderGeometry args={[config.platformRadius, config.platformRadius, 0.3, 48]} />
-          <meshStandardMaterial color="#0b0a0f" metalness={0.55} roughness={0.4} />
+          <meshStandardMaterial color={PALETTE.dais.top} metalness={0.55} roughness={0.4} />
         </mesh>
         <mesh position={[0, 0.32, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[config.platformRadius - 0.18, config.platformRadius - 0.1, 64]} />
@@ -2423,7 +2492,7 @@ const Zone = ({ config, isTouch, lite = false }) => {
         </mesh>
 
         <group rotation={[0, faceAngle, 0]}>
-          <GeometryComponent factorRef={factorRef} accentColor={accentColor} isTouch={isTouch} lite={lite} />
+          <GeometryComponent factorRef={factorRef} accentColor={accentColor} isTouch={isTouch} lite={lite} P={PALETTE} />
         </group>
       </group>
 
