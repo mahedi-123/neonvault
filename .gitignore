@@ -27,3 +27,7 @@ dist-ssr
 debug-*.cjs
 debug-*.png
 qa-screenshots/
+
+# Backend data (SQLite database, generated admin login)
+server/data/*
+!server/data/.gitkeep

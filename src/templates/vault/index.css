@@ -1,0 +1,942 @@
+@import "tailwindcss" source(".");
+@source "../../shared";
+
+@theme {
+  /* Vault palette — deep teal-black, bioluminescent teal, violet and moss.
+     Every page reads these tokens, so this block is the whole site's skin. */
+  --color-bg: #05080b;
+  --color-bg-elevated: #081013;
+  --color-surface: #0b1518;
+  --color-surface-hover: #10201f;
+  --color-border: #1a2b2c;
+  --color-border-hover: #2a4341;
+  --color-text: #e8f6f3;
+  --color-text-muted: #94aca8;
+  --color-text-subtle: #5c7370;
+  --color-accent: #5eead4;
+  --color-accent-dim: #2dd4bf;
+  --color-accent-secondary: #c4b5fd;
+  --color-accent-secondary-dim: #a78bfa;
+  --color-accent-glow: rgba(94, 234, 212, 0.32);
+  --color-accent-subtle: rgba(94, 234, 212, 0.1);
+  --color-accent-secondary-subtle: rgba(167, 139, 250, 0.12);
+  --color-moss: #c4d94a;
+  --color-mint: #c9fff4;
+  --color-warning: #fcd34d;
+  --color-error: #fb7185;
+  --color-card: #081114;
+  --color-card-hover: #0d1a1d;
+
+  --font-display: "Space Grotesk", "Syne", system-ui, sans-serif;
+  --font-body: "JetBrains Mono", "IBM Plex Mono", monospace;
+
+  /* The vault sets its display type light and huge rather than heavy.
+     Remapping the weight tokens carries that across every page at once. */
+  --font-weight-bold: 500;
+  --font-weight-extrabold: 500;
+  --font-weight-black: 600;
+
+  --shadow-glow: 0 0 50px -12px rgba(94, 234, 212, 0.22);
+  --shadow-glow-strong: 0 0 90px -20px rgba(94, 234, 212, 0.32);
+  --shadow-elevated: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 4px 24px -4px rgba(0, 0, 0, 0.5);
+
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    @apply bg-bg text-text font-body antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(94, 234, 212, 0.06), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(167, 139, 250, 0.04), transparent);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-text;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-hover rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-subtle;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg;
+  }
+}
+
+@layer utilities {
+  /**
+   * Expands a control's touch target without changing how it looks.
+   *
+   * The card actions (wishlist, quick view, add to cart) measured 34-38px and
+   * the image dots 8px — all well under the 44px every touch guideline asks
+   * for, and all of them primary shopping controls on a phone. Growing the
+   * visible chrome to 44px would have made the cards clumsy, so instead an
+   * empty ::after is centred over each control and absorbs the tap on the
+   * button's behalf.
+   *
+   * The two axes are separate on purpose. A square 44px box around controls
+   * sitting 14px apart does not help anyone: each box reaches past its
+   * neighbour's centre, the last one in the DOM paints on top, and every tap
+   * in the row lands on the same control. So --tap-w is set per use to stay
+   * INSIDE the spacing to the nearest neighbour, while --tap-h grows freely
+   * because nothing sits above or below these rows.
+   *
+   * Coarse pointers only: on a mouse these invisible boxes would overlap
+   * neighbouring controls and steal their hover states, and a cursor does not
+   * need the help.
+   */
+  .tap-safe {
+    position: relative;
+  }
+
+  @media (pointer: coarse) {
+    .tap-safe::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, var(--tap-w, 44px));
+      height: max(100%, var(--tap-h, 44px));
+      transform: translate(-50%, -50%);
+    }
+
+    /* Carousel dots are the tightest row on the page, so on touch they also
+       get more room between them — that is what lets the hit boxes grow
+       sideways at all. */
+    .tap-row-dots {
+      gap: 0.75rem;
+    }
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-in {
+    animation: animateIn var(--transition-slow) forwards;
+  }
+
+  @keyframes animateIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .glass {
+    @apply bg-surface/60 backdrop-blur-xl border border-border/50;
+  }
+
+  .glass-strong {
+    @apply bg-surface/80 backdrop-blur-2xl border border-border/60;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-text via-text to-text-muted bg-clip-text text-transparent;
+  }
+
+  .text-gradient-accent {
+    @apply bg-gradient-to-r from-accent to-accent-secondary bg-clip-text text-transparent;
+  }
+
+  .border-glow {
+    box-shadow:
+      0 0 0 1px var(--color-border),
+      0 0 20px -5px var(--color-accent-glow);
+  }
+
+  .noise-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.4) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .grid-pattern {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .mesh-gradient {
+    background:
+      radial-gradient(ellipse 60% 60% at 20% 20%, rgba(94, 234, 212, 0.07), transparent),
+      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(167, 139, 250, 0.06), transparent),
+      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(196, 217, 74, 0.025), transparent);
+  }
+}
+
+/* =========================================================
+   SECTION FURNITURE — holo grid + ticker
+
+   Both are page-wide decoration for the non-vault pages, and both are
+   written as CSS animations rather than JS: they run for the whole life of
+   the page, and nothing here needs to know about React state, so paying a
+   rAF callback (and a re-render budget) for them would be waste.
+
+   Everything animates transform/opacity only, and the whole block goes
+   still under prefers-reduced-motion.
+   ========================================================= */
+
+@layer components {
+  .holo-grid {
+    --holo: 167, 139, 250;
+    perspective: 340px;
+  }
+  .holo-grid[data-tone='cyan'] {
+    --holo: 94, 234, 212;
+  }
+
+  /* The floor: a plain square grid, laid flat by a 3D rotation and scrolled
+     along its own axis. Doing the perspective with a transform (rather than
+     drawing a converging grid by hand) is what makes the lines actually
+     converge toward a vanishing point as they recede. */
+  .holo-grid-floor {
+    position: absolute;
+    left: -50%;
+    right: -50%;
+    bottom: -12%;
+    height: 78%;
+    background-image:
+      linear-gradient(rgba(var(--holo), 0.22) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--holo), 0.16) 1px, transparent 1px);
+    background-size: 54px 54px;
+    transform: rotateX(72deg);
+    transform-origin: bottom center;
+    -webkit-mask-image: linear-gradient(0deg, #000 5%, transparent 80%);
+    mask-image: linear-gradient(0deg, #000 5%, transparent 80%);
+    animation: holoGridDrift 5s linear infinite;
+    will-change: background-position;
+  }
+
+  .holo-grid[data-flip='true'] .holo-grid-floor {
+    bottom: auto;
+    top: -12%;
+    transform: rotateX(-72deg);
+    transform-origin: top center;
+    -webkit-mask-image: linear-gradient(180deg, #000 5%, transparent 80%);
+    mask-image: linear-gradient(180deg, #000 5%, transparent 80%);
+  }
+
+  /* A wide, very soft band travelling across the section. Slow enough that
+     it reads as ambient rather than as something demanding attention. */
+  .holo-grid-sweep {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 35%,
+      rgba(var(--holo), 0.07) 48%,
+      rgba(var(--holo), 0.12) 50%,
+      rgba(var(--holo), 0.07) 52%,
+      transparent 65%
+    );
+    transform: translateX(-60%);
+    animation: holoGridSweep 14s ease-in-out infinite;
+  }
+
+  /* Glow where the grid meets the vanishing point, so the floor has a
+     horizon instead of just fading out. */
+  .holo-grid-horizon {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 18%;
+    height: 40%;
+    background: radial-gradient(
+      ellipse 60% 100% at 50% 100%,
+      rgba(var(--holo), 0.14),
+      transparent 70%
+    );
+  }
+  .holo-grid[data-flip='true'] .holo-grid-horizon {
+    bottom: auto;
+    top: 18%;
+    background: radial-gradient(ellipse 60% 100% at 50% 0%, rgba(var(--holo), 0.14), transparent 70%);
+  }
+
+  @keyframes holoGridDrift {
+    to { background-position: 0 54px, 0 0; }
+  }
+
+  @keyframes holoGridSweep {
+    0%, 100% { transform: translateX(-60%); }
+    50% { transform: translateX(60%); }
+  }
+
+  /* Ticker. The track holds the item list twice; -50% lands the second copy
+     exactly where the first started, which is what makes the loop seamless. */
+  .ticker-track {
+    animation: tickerScroll var(--ticker-duration, 34s) linear infinite;
+  }
+  .ticker-track-reverse {
+    animation-direction: reverse;
+  }
+  .ticker:hover .ticker-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes tickerScroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .holo-grid-floor,
+    .holo-grid-sweep,
+    .ticker-track {
+      animation: none;
+    }
+    .holo-grid-sweep { opacity: 0; }
+  }
+
+  /* Same treatment on a low-tier device, for a different reason: these run
+     forever, and a perpetually animating full-bleed background is a
+     compositor cost the page pays on every single frame whether or not
+     anyone is looking at it. The grid stays — it just stops moving. */
+  [data-quality='lite'] .holo-grid-floor,
+  [data-quality='lite'] .holo-grid-sweep,
+  [data-quality='lite'] .ticker-track {
+    animation: none;
+  }
+  [data-quality='lite'] .holo-grid-sweep { opacity: 0; }
+}
+
+/* =========================================================
+   ENTER THE VAULT — the hero's portal CTA
+
+   This one button is the only door to the 3D world, sitting third in a row
+   of three, so it has to out-shout two buttons that are visually louder than
+   it. The effect is layered rather than one big animation: a conic ring
+   orbiting the border, a scanner sweep, a receding grid, HUD corner
+   brackets, rising sparks, and a slow charge pulse — each cheap on its own,
+   loud together.
+
+   Everything animates transform/opacity/filter (compositor work, no layout),
+   the whole thing is inert under prefers-reduced-motion, and the visuals are
+   painted by decorative spans the button already labels itself without.
+   ========================================================= */
+
+@layer components {
+  .vault-cta-wrap {
+    --cta-violet: #a78bfa;
+    --cta-cyan: #5eead4;
+    position: relative;
+    display: inline-flex;
+    isolation: isolate;
+  }
+
+  /* Soft bloom behind the button. Lives on the wrapper, not the button, so
+     it isn't clipped by the button's own overflow: hidden. */
+  .vault-cta-aura {
+    position: absolute;
+    inset: -26px;
+    z-index: -1;
+    pointer-events: none;
+    /* Sized and weighted to be visible against the hero's near-black ground.
+       An earlier pass was subtle enough to disappear entirely, which defeats
+       the point — this is the part that catches the eye from across the
+       page, before any of the detail inside the button reads at all. */
+    background:
+      radial-gradient(ellipse 56% 120% at 50% 50%,
+        rgba(94, 234, 212, 0.55),
+        rgba(167, 139, 250, 0.3) 52%,
+        transparent 78%);
+    filter: blur(22px);
+    animation: vaultCtaBreathe 3.4s ease-in-out infinite;
+    transition: opacity var(--transition-base);
+  }
+
+  /* The "look at me" beat: a rim that expands and dissolves on a slow cycle,
+     like the button is charging. */
+  .vault-cta-pulse {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border: 1px solid var(--cta-cyan);
+    border-radius: 999px;
+    animation: vaultCtaPulse 3.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  }
+
+  .vault-cta {
+    position: relative;
+    overflow: hidden;
+    border-radius: 999px;
+    isolation: isolate;
+    background: transparent;
+  }
+
+  /* Orbiting conic gradient. Oversized and square so the sweep still covers
+     the corners of a wide, short button as it turns. */
+  .vault-cta-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 260%;
+    aspect-ratio: 1;
+    margin-left: -130%;
+    transform-origin: center;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      var(--cta-cyan) 26deg,
+      var(--cta-violet) 62deg,
+      transparent 112deg,
+      transparent 184deg,
+      var(--cta-violet) 208deg,
+      var(--cta-cyan) 244deg,
+      transparent 296deg
+    );
+    animation: vaultCtaSpin 4.2s linear infinite;
+    /* The margin-top half-offset can't be expressed in % of height here, so
+       the element is centred with a translate instead. */
+    translate: 0 -50%;
+  }
+
+  /* Sits over the ring and leaves only its outer rim showing — that rim is
+     the animated border. */
+  .vault-cta-face {
+    position: absolute;
+    inset: 1.5px;
+    border-radius: 999px;
+    /* Not flat black: a violet lift at the top edge gives the face some
+       depth, so the ring around it reads as light falling on a surface
+       rather than a stroke drawn on a hole. */
+    background:
+      radial-gradient(ellipse 120% 90% at 50% -10%, rgba(94, 234, 212, 0.22), transparent 62%),
+      #050c0e;
+  }
+
+  /* Perspective floor receding into the button. */
+  .vault-cta-grid {
+    position: absolute;
+    inset: 1.5px;
+    border-radius: 999px;
+    background-image:
+      linear-gradient(90deg, rgba(167, 139, 250, 0.4) 1px, transparent 1px),
+      linear-gradient(rgba(94, 234, 212, 0.3) 1px, transparent 1px);
+    background-size: 20px 20px;
+    /* Fade out low, so it reads as a floor receding under the label rather
+       than graph paper laid over the whole button. */
+    -webkit-mask-image: linear-gradient(0deg, #000, transparent 58%);
+    mask-image: linear-gradient(0deg, #000, transparent 58%);
+    opacity: 0.3;
+    animation: vaultCtaGrid 2s linear infinite;
+    transition: opacity var(--transition-base);
+  }
+
+  /* Scanner passing across the face. */
+  .vault-cta-scan {
+    position: absolute;
+    inset: 1.5px;
+    border-radius: 999px;
+    background: linear-gradient(
+      100deg,
+      transparent 42%,
+      rgba(226, 232, 255, 0.1) 47%,
+      rgba(94, 234, 212, 0.6) 50%,
+      rgba(226, 232, 255, 0.1) 53%,
+      transparent 58%
+    );
+    transform: translateX(-130%);
+    animation: vaultCtaScan 3.6s cubic-bezier(0.55, 0, 0.2, 1) infinite;
+  }
+
+  /* HUD brackets. They push outward on hover, which is what makes the button
+     feel like it opens rather than just lights up. */
+  .vault-cta-corner {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--cta-cyan);
+    opacity: 0.75;
+    transition: transform var(--transition-base), opacity var(--transition-base);
+  }
+  .vault-cta-corner-tl { top: 5px; left: 14px; border-right: 0; border-bottom: 0; }
+  .vault-cta-corner-tr { top: 5px; right: 14px; border-left: 0; border-bottom: 0; }
+  .vault-cta-corner-bl { bottom: 5px; left: 14px; border-right: 0; border-top: 0; }
+  .vault-cta-corner-br { bottom: 5px; right: 14px; border-left: 0; border-top: 0; }
+
+  .vault-cta:hover .vault-cta-corner-tl { transform: translate(-3px, -3px); opacity: 1; }
+  .vault-cta:hover .vault-cta-corner-tr { transform: translate(3px, -3px); opacity: 1; }
+  .vault-cta:hover .vault-cta-corner-bl { transform: translate(-3px, 3px); opacity: 1; }
+  .vault-cta:hover .vault-cta-corner-br { transform: translate(3px, 3px); opacity: 1; }
+
+  .vault-cta-spark {
+    position: absolute;
+    bottom: -4px;
+    width: 2px;
+    height: 2px;
+    border-radius: 9999px;
+    background: var(--cta-cyan);
+    box-shadow: 0 0 6px var(--cta-cyan);
+    opacity: 0;
+    animation: vaultCtaSpark 2.8s ease-out infinite;
+  }
+
+  .vault-cta-icon {
+    animation: vaultCtaFloat 3s ease-in-out infinite;
+    transition: transform var(--transition-base);
+  }
+  .vault-cta:hover .vault-cta-icon {
+    transform: rotate(90deg) scale(1.1);
+  }
+
+  .vault-cta:hover .vault-cta-grid { opacity: 0.75; }
+  .vault-cta-wrap:hover .vault-cta-aura { opacity: 1; }
+  .vault-cta:hover .vault-cta-label { animation: vaultCtaGlitch 0.42s steps(3, end) 1; }
+  .vault-cta:active { transform: scale(0.985); }
+
+  @keyframes vaultCtaSpin {
+    to { rotate: 360deg; }
+  }
+
+  @keyframes vaultCtaGrid {
+    to { background-position: 0 20px, 0 20px; }
+  }
+
+  @keyframes vaultCtaScan {
+    /* Long dwell, quick pass — a sweep that never rests reads as a loading
+       bar, and a loading bar is the opposite of an invitation. */
+    0%, 58% { transform: translateX(-130%); }
+    88%, 100% { transform: translateX(130%); }
+  }
+
+  @keyframes vaultCtaPulse {
+    0% { transform: scale(1); opacity: 0.6; }
+    65%, 100% { transform: scale(1.16); opacity: 0; }
+  }
+
+  @keyframes vaultCtaBreathe {
+    0%, 100% { opacity: 0.42; transform: scale(0.97); }
+    50% { opacity: 0.78; transform: scale(1.04); }
+  }
+
+  @keyframes vaultCtaSpark {
+    0% { opacity: 0; transform: translateY(0); }
+    15% { opacity: 0.9; }
+    100% { opacity: 0; transform: translateY(-44px); }
+  }
+
+  @keyframes vaultCtaFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-2px) rotate(8deg); }
+  }
+
+  @keyframes vaultCtaGlitch {
+    0% { text-shadow: none; transform: translateX(0); }
+    30% { text-shadow: -2px 0 var(--cta-cyan), 2px 0 var(--cta-violet); transform: translateX(1px); }
+    60% { text-shadow: 2px 0 var(--cta-cyan), -2px 0 var(--cta-violet); transform: translateX(-1px); }
+    100% { text-shadow: none; transform: translateX(0); }
+  }
+
+  /* Reduced motion keeps the styling and drops the movement — the button is
+     still obviously the special one, it just stops moving. */
+  @media (prefers-reduced-motion: reduce) {
+    .vault-cta-ring,
+    .vault-cta-grid,
+    .vault-cta-scan,
+    .vault-cta-pulse,
+    .vault-cta-aura,
+    .vault-cta-spark,
+    .vault-cta-icon,
+    .vault-cta:hover .vault-cta-label {
+      animation: none;
+    }
+    .vault-cta-scan,
+    .vault-cta-spark {
+      opacity: 0;
+    }
+    .vault-cta-aura { opacity: 0.5; }
+  }
+
+  /* The button keeps its shape and its glow on a low-tier device; what it
+     loses is eight simultaneous infinite animations, several of which
+     animate filters and gradients — the most expensive thing a phone GPU
+     can be asked to redraw sixty times a second. */
+  [data-quality='lite'] .vault-cta-ring,
+  [data-quality='lite'] .vault-cta-grid,
+  [data-quality='lite'] .vault-cta-scan,
+  [data-quality='lite'] .vault-cta-pulse,
+  [data-quality='lite'] .vault-cta-aura,
+  [data-quality='lite'] .vault-cta-spark,
+  [data-quality='lite'] .vault-cta-icon {
+    animation: none;
+  }
+  [data-quality='lite'] .vault-cta-scan,
+  [data-quality='lite'] .vault-cta-spark {
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  /* ---------------------------------------------------------------
+     Low-tier mode
+     --------------------------------------------------------------- */
+
+  /* Backdrop blur is the single most expensive thing on this site: every
+     blurred surface forces the compositor to re-sample everything behind it,
+     and there are around forty of them across the navbar, cards, panels and
+     the vault overlay. Dropping the blur keeps every layout and colour
+     exactly as it was — the panels are still translucent, they just no
+     longer blur what is under them. */
+  [data-quality='lite'] *,
+  [data-quality='lite'] *::before,
+  [data-quality='lite'] *::after {
+    /* Only the unprefixed property is written here on purpose. Declaring
+       both let the minifier decide they were duplicates and keep just the
+       -webkit- alias, which Tailwind's own unprefixed `backdrop-filter`
+       then beat — the rule shipped and did nothing. The build adds whatever
+       prefix its browser targets need. */
+    backdrop-filter: none !important;
+  }
+
+  /* Without the blur, translucent chrome sits on whatever it happens to
+     overlap, so the surfaces that carry text get more opaque to stay
+     readable — this is the one place lite mode changes how something looks
+     rather than just how it is drawn. */
+  [data-quality='lite'] .bg-surface\/70,
+  [data-quality='lite'] .bg-surface\/80,
+  [data-quality='lite'] .bg-surface\/90 {
+    background-color: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  }
+
+  /* The vault canvas is a control surface, not a document.
+     Without this, a finger drag on a phone is claimed by the browser as a
+     scroll/zoom gesture: it fires pointercancel a few pixels in, the steer
+     ends, and the courier stops dead — which is exactly the "touch and drag
+     does nothing on mobile" bug. touch-action tells the browser up front
+     that this element handles its own gestures. */
+  .vault-canvas,
+  .vault-canvas canvas {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* =========================================================
+   VAULT SKIN — site-wide FX layer
+   Every effect below animates transform / opacity only, and the whole block
+   goes still under prefers-reduced-motion and on low-tier devices.
+   ========================================================= */
+
+html.lenis, html.lenis body { scroll-behavior: auto; }
+html { color-scheme: dark; accent-color: #5eead4; }
+
+/* scroll-velocity skew (driven by --sv from ScrollProgress) */
+.ticker-track { transform-origin: center; }
+.ticker { transform: skewX(calc(var(--sv, 0) * -1deg)); transition: transform 0.25s ease-out; }
+
+/* ---------- custom cursor ---------- */
+html.nv-cursor-on,
+html.nv-cursor-on body,
+html.nv-cursor-on a,
+html.nv-cursor-on button,
+html.nv-cursor-on [role='button'],
+html.nv-cursor-on label,
+html.nv-cursor-on select { cursor: none; }
+html.nv-cursor-on input,
+html.nv-cursor-on textarea { cursor: text; }
+
+.nv-cursor { position: fixed; inset: 0; pointer-events: none; z-index: 10000; }
+.nv-cursor-dot,
+.nv-cursor-ring { position: fixed; left: 0; top: 0; opacity: 0; transition: opacity 0.3s ease; will-change: transform; }
+html.nv-cursor-visible .nv-cursor-dot,
+html.nv-cursor-visible .nv-cursor-ring { opacity: 1; }
+.nv-cursor-dot {
+  width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
+  background: #c9fff4; box-shadow: 0 0 10px #5eead4;
+}
+.nv-cursor-ring {
+  width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%;
+  display: grid; place-items: center;
+}
+.nv-cursor-ring::before {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  border: 1px solid rgba(201, 255, 244, 0.45);
+  transition: transform 0.35s var(--ease-out-expo), background-color 0.3s, border-color 0.3s;
+}
+html.nv-cursor-hover .nv-cursor-ring::before { transform: scale(1.55); background: rgba(94, 234, 212, 0.1); border-color: rgba(94, 234, 212, 0.8); }
+html.nv-cursor-label .nv-cursor-ring::before { transform: scale(2.3); background: rgba(201, 255, 244, 0.92); border-color: transparent; }
+html.nv-cursor-down .nv-cursor-ring::before { transform: scale(0.8); }
+html.nv-cursor-text .nv-cursor-ring { opacity: 0 !important; }
+.nv-cursor-text-label {
+  position: relative; font: 600 9px/1 "JetBrains Mono", monospace; letter-spacing: 0.16em;
+  text-transform: uppercase; color: #03100d; opacity: 0; transition: opacity 0.2s;
+}
+html.nv-cursor-label .nv-cursor-text-label { opacity: 1; }
+html.nv-cursor-label .nv-cursor-dot { opacity: 0; }
+
+/* ---------- scroll progress ---------- */
+.nv-progress {
+  position: fixed; left: 0; right: 0; top: 0; height: 2px; z-index: 70;
+  transform-origin: 0 50%; transform: scaleX(0);
+  background: linear-gradient(90deg, #5eead4, #c4b5fd 60%, #c4d94a);
+  box-shadow: 0 0 12px rgba(94, 234, 212, 0.7);
+  pointer-events: none;
+}
+
+/* ---------- route wipe ---------- */
+.nv-wipe { position: fixed; inset: 0; z-index: 65; pointer-events: none; overflow: hidden; animation: nvWipeFade 0.9s ease forwards; }
+.nv-wipe::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, rgba(94, 234, 212, 0.08), rgba(5, 8, 11, 0.55));
+}
+.nv-wipe-line {
+  position: absolute; left: 0; right: 0; top: 0; height: 18vh;
+  background: linear-gradient(180deg, transparent, rgba(94, 234, 212, 0.18) 70%, rgba(201, 255, 244, 0.9) 98%, transparent);
+  animation: nvWipeLine 0.75s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+@keyframes nvWipeLine { from { transform: translateY(-20vh); } to { transform: translateY(110vh); } }
+@keyframes nvWipeFade { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- atmosphere ---------- */
+.nv-atmos { position: fixed; inset: 0; z-index: 55; pointer-events: none; overflow: hidden; }
+.nv-atmos-edge {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 45% 55% at 0% 100%, rgba(29, 90, 90, 0.28), transparent 70%),
+    radial-gradient(ellipse 40% 50% at 100% 0%, rgba(29, 90, 90, 0.18), transparent 70%),
+    radial-gradient(ellipse 35% 40% at 100% 100%, rgba(80, 60, 140, 0.12), transparent 70%);
+  mix-blend-mode: screen;
+}
+.nv-atmos-grain {
+  position: absolute; inset: -50%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.055;
+  animation: nvGrain 0.9s steps(6) infinite;
+}
+@keyframes nvGrain {
+  0% { transform: translate(0, 0); } 20% { transform: translate(-3%, 2%); } 40% { transform: translate(2%, -4%); }
+  60% { transform: translate(-4%, -1%); } 80% { transform: translate(3%, 3%); } 100% { transform: translate(0, 0); }
+}
+
+/* ---------- buttons: sheen sweep ---------- */
+.nv-btn::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
+  transform: translateX(-120%);
+  transition: transform 0.7s var(--ease-out-expo);
+}
+.nv-btn:not(.nv-btn-solid)::after { background: linear-gradient(105deg, transparent 35%, rgba(94, 234, 212, 0.22) 50%, transparent 65%); }
+.nv-btn:hover::after { transform: translateX(120%); }
+
+/* ---------- chips / HUD ---------- */
+.nv-chip {
+  display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 0 16px; border-radius: 999px;
+  border: 1px solid rgba(160, 240, 225, 0.22); background: rgba(8, 16, 18, 0.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  font: 500 11px/1 "JetBrains Mono", monospace; letter-spacing: 0.14em; color: #cfe9e4;
+  box-shadow: 0 10px 30px -12px rgba(94, 234, 212, 0.45);
+}
+.nv-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: #5eead4; box-shadow: 0 0 10px #5eead4; animation: nvPulse 1.6s ease-in-out infinite; }
+@keyframes nvPulse { 50% { opacity: 0.3; transform: scale(0.7); } }
+
+/* ---------- hero ---------- */
+.nv-hero-title {
+  font-family: "Space Grotesk", sans-serif; font-weight: 400; line-height: 0.92; letter-spacing: 0.01em;
+  font-size: clamp(3.4rem, 10.5vw, 9.5rem); color: #f4fffd;
+  text-shadow: 0 0 40px rgba(127, 224, 210, 0.3), -30px 0 60px rgba(127, 224, 210, 0.12);
+}
+.nv-hero-line { transform: translateY(105%); animation: nvRise 1.1s var(--ease-out-expo) forwards; }
+@keyframes nvRise { to { transform: translateY(0); } }
+.nv-char {
+  --p: 0; --dx: 0;
+  display: inline-block;
+  transform: translate3d(calc(var(--dx) * var(--p) * 14px), calc(var(--p) * -0.14em), 0) scale(calc(1 + var(--p) * 0.06));
+  transition: transform 0.35s var(--ease-out-expo), color 0.35s, text-shadow 0.35s;
+  color: color-mix(in srgb, #c9fff4 calc(var(--p) * 100%), #f4fffd);
+  text-shadow: 0 0 calc(var(--p) * 38px) rgba(94, 234, 212, calc(var(--p) * 0.95));
+}
+.nv-char-accent {
+  color: color-mix(in srgb, #ffffff calc(var(--p) * 55%), var(--c, #5eead4));
+  text-shadow: 0 0 calc(10px + var(--p) * 36px) color-mix(in srgb, var(--c, #5eead4) 70%, transparent);
+}
+.nv-scroll-cue { display: inline-block; animation: nvBlink 2.4s ease-in-out infinite; }
+@keyframes nvBlink { 50% { color: #cfe9e4; } }
+
+.nv-orbit { position: absolute; inset: -9% -6%; pointer-events: none; }
+.nv-orbit span {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1px solid rgba(94, 234, 212, 0.18);
+  animation: nvSpin 26s linear infinite;
+  -webkit-mask-image: conic-gradient(#000 0 40%, transparent 55% 80%, #000);
+  mask-image: conic-gradient(#000 0 40%, transparent 55% 80%, #000);
+}
+.nv-orbit span:last-child { inset: 7%; border-color: rgba(167, 139, 250, 0.22); animation-duration: 18s; animation-direction: reverse; }
+@keyframes nvSpin { to { transform: rotate(360deg); } }
+
+/* ---------- glass card + tilt + glare ---------- */
+.nv-glass-card {
+  background: linear-gradient(160deg, rgba(12, 26, 28, 0.85), rgba(14, 10, 26, 0.75));
+  border: 1px solid rgba(160, 240, 225, 0.18);
+  box-shadow: 0 40px 100px -40px rgba(0, 0, 0, 0.9), 0 0 60px -30px rgba(94, 234, 212, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.nv-tilt {
+  --rx: 0deg; --ry: 0deg; --glare: 0; --mx: 50%; --my: 50%;
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s var(--ease-out-expo), border-color 0.3s, box-shadow 0.3s;
+  transform-style: preserve-3d;
+}
+.nv-tilt:hover { transition-duration: 0.15s, 0.3s, 0.3s; border-color: rgba(94, 234, 212, 0.45); }
+.nv-glare {
+  position: absolute; inset: 0; pointer-events: none; border-radius: inherit; z-index: 3;
+  background: radial-gradient(420px circle at var(--mx) var(--my), rgba(201, 255, 244, 0.18), transparent 45%);
+  opacity: var(--glare); transition: opacity 0.4s;
+  mix-blend-mode: screen;
+}
+
+/* spotlight cards: a light that follows the pointer + lit border */
+[data-spotlight] { --mx: 50%; --my: 50%; position: relative; }
+[data-spotlight]::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+  background: radial-gradient(360px circle at var(--mx) var(--my), rgba(94, 234, 212, 0.1), transparent 45%);
+  opacity: 0; transition: opacity 0.35s;
+}
+[data-spotlight]:hover::before { opacity: 1; }
+
+/* ---------- section titles glow ---------- */
+.nv-title-glow { text-shadow: 0 0 34px rgba(127, 224, 210, 0.28); }
+
+/* ---------- footer wordmark ---------- */
+.nv-wordmark {
+  --mx: 50%; --my: 50%;
+  font-family: "Space Grotesk", sans-serif; font-weight: 500; line-height: 0.8; letter-spacing: -0.02em;
+  font-size: clamp(3.5rem, 15vw, 15rem); white-space: nowrap; user-select: none;
+  color: transparent; -webkit-text-stroke: 1px rgba(94, 234, 212, 0.16);
+  position: relative;
+}
+.nv-wordmark::after {
+  content: attr(data-text); position: absolute; inset: 0;
+  background: radial-gradient(260px circle at var(--mx) var(--my), #c9fff4, #5eead4 30%, rgba(167, 139, 250, 0.6) 55%, transparent 70%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: 0;
+  opacity: 0; transition: opacity 0.5s;
+}
+.nv-wordmark:hover::after { opacity: 1; }
+
+
+/* ---------- route-surviving transitions (src/fx/transitions.js) ---------- */
+.nv-fly {
+  position: fixed; z-index: 9990; overflow: hidden; pointer-events: none; will-change: transform, width, height;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(160, 240, 225, 0.25);
+}
+.nv-fly img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nv-fly-cart { box-shadow: 0 0 30px rgba(94, 234, 212, 0.8), 0 0 0 1px rgba(201, 255, 244, 0.8); }
+.nv-burst { position: fixed; left: 0; top: 0; z-index: 9991; pointer-events: none; }
+.nv-burst i {
+  position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%;
+  box-shadow: 0 0 10px currentColor; animation: nvBurst 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes nvBurst {
+  from { transform: translate(0, 0) scale(1); opacity: 1; }
+  to { transform: translate(var(--x), var(--y)) scale(0.2); opacity: 0; }
+}
+.nv-jolt { animation: nvJolt 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97); box-shadow: 0 0 24px rgba(94, 234, 212, 0.7); }
+@keyframes nvJolt {
+  0%, 100% { transform: rotate(0) scale(1); }
+  20% { transform: rotate(-14deg) scale(1.18); } 40% { transform: rotate(10deg) scale(1.12); }
+  60% { transform: rotate(-6deg) scale(1.06); } 80% { transform: rotate(3deg); }
+}
+
+.nv-portal { position: fixed; inset: 0; z-index: 9995; pointer-events: none; transition: opacity 1s ease; }
+.nv-portal.is-out { opacity: 0; }
+.nv-portal-fill {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at var(--px) var(--py), #ffffff 0%, #c9fff4 8%, #5eead4 22%, #0b2a2c 48%, #05080b 70%);
+  clip-path: circle(0px at var(--px) var(--py));
+  animation: nvPortalFill 0.95s cubic-bezier(0.7, 0, 0.2, 1) forwards;
+}
+.nv-portal-ring {
+  position: absolute; left: var(--px); top: var(--py); width: 40px; height: 40px; margin: -20px 0 0 -20px;
+  border-radius: 50%; border: 1.5px solid #c9fff4; box-shadow: 0 0 30px #5eead4, inset 0 0 20px #5eead4;
+  animation: nvPortalRing 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.nv-portal-ring-2 { border-color: #c4b5fd; animation-delay: 0.12s; box-shadow: 0 0 30px #a78bfa; }
+@keyframes nvPortalFill { to { clip-path: circle(150vmax at var(--px) var(--py)); } }
+@keyframes nvPortalRing { from { transform: scale(0.4); opacity: 1; } to { transform: scale(40); opacity: 0; } }
+
+
+/* ---------- growing vine progress (desktop) ---------- */
+.nv-vine { position: fixed; right: 10px; top: 96px; z-index: 56; pointer-events: none; overflow: visible; }
+.nv-vine-ghost { fill: none; stroke: rgba(94, 234, 212, 0.08); stroke-width: 1; }
+.nv-vine-path { fill: none; stroke: #5eead4; stroke-width: 1.4; stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(94, 234, 212, 0.9)); }
+.nv-vine-leaf {
+  fill: rgba(196, 217, 74, 0.85); stroke: #c9fff4; stroke-width: 0.5;
+  transform: scale(0); transform-box: fill-box; transform-origin: 50% 100%;
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), fill 0.6s;
+  filter: drop-shadow(0 0 3px rgba(196, 217, 74, 0.8));
+}
+.nv-vine-leaf.is-open { transform: scale(1); }
+.nv-vine-tip circle { fill: #c9fff4; }
+.nv-vine-tip .nv-vine-halo { fill: rgba(94, 234, 212, 0.25); animation: nvPulse 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@media (min-width: 1280px) { .nv-progress { display: none; } }
+
+.nv-liquid { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity 0.35s; z-index: 1; }
+
+/* ---------- reduced motion / lite ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .ticker { transform: none; }
+  .nv-atmos-grain, .nv-orbit span, .nv-chip-dot, .nv-scroll-cue, .nv-wipe { animation: none; }
+  .nv-wipe { display: none; }
+  .nv-hero-line { animation: none; transform: none; }
+  .nv-char { transition: none; }
+}
+[data-quality='lite'] .nv-atmos-grain,
+[data-quality='lite'] .nv-orbit span { animation: none; }
+[data-quality='lite'] .nv-atmos-edge { mix-blend-mode: normal; }
+
+/* safety net: decorative glows never widen the page on phones */
+html, body { overflow-x: clip; }

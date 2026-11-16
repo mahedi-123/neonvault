@@ -1,20 +1,28 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import './index.css'
-import App from './App.jsx'
-import { applyQualityAttribute } from './lib/quality.js'
+import { BrowserRouter, HashRouter } from 'react-router-dom'
+import { TEMPLATES, readTemplate } from './shell/templates.js'
+import { mountSwitcher } from './shell/switcher.js'
+import { bootstrap } from './shared/lib/boot.js'
+import { track } from './shared/lib/api.js'
 
-// Before the first paint: the stylesheet needs to know whether this machine
-// can afford backdrop blur and perpetual background animation, and finding
-// out after React has mounted means a low-end device renders the expensive
-// version once anyway.
-applyQualityAttribute()
+// Static hosts without SPA rewrites (artifact previews) build with hash routing.
+const Router = import.meta.env.VITE_HASH_ROUTER ? HashRouter : BrowserRouter
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </StrictMode>,
-)
+// Every design lives in src/templates/<id>/ as a complete, self-contained app.
+// Only the chosen one is downloaded and mounted; the switcher reloads into another.
+const id = readTemplate()
+const template = TEMPLATES.find((t) => t.id === id)
+document.documentElement.dataset.template = id
+
+// The design's code and the backend handshake (live catalog + session) load in parallel.
+Promise.all([template.load(), bootstrap()]).then(([{ default: App }]) => {
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <Router>
+        <App />
+      </Router>
+    </StrictMode>,
+  )
+  mountSwitcher(id, (next) => track('template_switch', { template: next }))
+})
