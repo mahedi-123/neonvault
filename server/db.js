@@ -272,6 +272,12 @@ export async function seed(db, { adminEmail, adminPassword, log, demo = true } =
       adminEmail, await hashPassword(password),
     );
     out.adminPassword = adminPassword ? null : password;
+  } else if (adminPassword) {
+    db.run(
+      "UPDATE users SET email = ?, password_hash = ? WHERE id = ?",
+      adminEmail, await hashPassword(adminPassword), admin.id,
+    );
+    log?.info(`Admin password updated for ${adminEmail}.`);
   }
   return out;
 }

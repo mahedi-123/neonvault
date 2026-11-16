@@ -15,3 +15,7 @@ services:
         value: 0.0.0.0
       - key: COOKIE_SECURE
         value: 1
+      - key: ADMIN_EMAIL
+        value: admin@neonvault.local
+      - key: ADMIN_PASSWORD
+        value: NeonVault2026!

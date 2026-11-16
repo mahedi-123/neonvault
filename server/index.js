@@ -18,7 +18,8 @@ const { app, hub } = createApp({ db, config, log, serveStatic });
 const server = app.listen(config.port, config.host, () => {
   log.info(`NEONVAULT API  → http://${config.host === '0.0.0.0' ? 'localhost' : config.host}:${config.port}/api/health`);
   if (serveStatic) log.info(`Storefront     → http://localhost:${config.port}/   Admin → http://localhost:${config.port}/admin`);
-  if (adminPassword) log.info(`Admin login    → ${config.adminEmail} / ${adminPassword}  (also saved in server/data/admin-login.txt)`);
+  if (config.adminPassword) log.info(`Admin login    → ${config.adminEmail} / ${config.adminPassword}`);
+  else if (adminPassword) log.info(`Admin login    → ${config.adminEmail} / ${adminPassword}  (also saved in server/data/admin-login.txt)`);
   else if (fs.existsSync(credFile)) log.info('Admin login    → see server/data/admin-login.txt');
 });
 
